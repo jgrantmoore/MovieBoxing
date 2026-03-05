@@ -27,11 +27,11 @@ const MovieCard: React.FC = ({}) => {
                 />
             </div>
                     <div className="flex items-center justify-center gap-4 text-neutral-500 font-bold text-[10px] md:text-[12px] tracking-[0.2em] uppercase">
-                        <Link href="/movies" className="text-blue-500 hover:text-blue-400 transition-colors">Home</Link>
+                        <Link href="/" className="text-blue-500 hover:text-blue-400 transition-colors">Home</Link>
                         <span className="w-1 h-1 bg-neutral-700 rounded-full"></span>
-                        <Link href="/movies/leaderboard" className="text-blue-500 hover:text-blue-400 transition-colors">Leaderboard</Link>
+                        <Link href="/leaderboard" className="text-blue-500 hover:text-blue-400 transition-colors">Leaderboard</Link>
                         <span className="w-1 h-1 bg-neutral-700 rounded-full"></span>
-                        <Link href="/movies/release-order" className="text-blue-500 hover:text-blue-400 transition-colors">Release Order</Link>
+                        <Link href="/release-order" className="text-blue-500 hover:text-blue-400 transition-colors">Release Order</Link>
                     </div>
                 </header>
     );
