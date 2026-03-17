@@ -53,9 +53,9 @@ export default function Profile({params, }: {params: Promise<{ id: string}>;}) {
                         <h1>{id}</h1>
                     </div>
                     <div>
-                        <div href="" className="ml-3 w-50p py-2 px-3 bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-black uppercase italic tracking-tight">
+                        <a href="" className="ml-3 w-50p py-2 px-3 bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-black uppercase italic tracking-tight">
                             Invite To League
-                        </div>
+                        </a>
                     </div>
                     <h2>Stats</h2>
                     <h2>Leagues</h2>

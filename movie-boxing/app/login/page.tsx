@@ -37,6 +37,12 @@ export default function Register() {
             return;
         }
 
+        if (!LOGIN_URL) {
+            setError('Login service is not configured');
+            setLoading(false);
+            return;
+        }
+
         try {
             const res = await fetch(LOGIN_URL, {
                 method: 'POST',
