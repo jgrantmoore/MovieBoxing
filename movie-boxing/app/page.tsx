@@ -1,244 +1,159 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import MovieCard from './components/MovieCard';
-import MovieHeader from './components/MovieHeader';
+import Link from "next/link";
+import Navbar from "./components/Navbar";
+import { useSession } from 'next-auth/react';
+import { SessionProvider } from "next-auth/react";
+import { useEffect } from "react";
+import Footer from "./components/Footer";
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwfFyIGgGM1ijXqmsNF_QwTSfhsPtmAJZCJef1LhynJ7aamawhh0qpqY-9RpyH1W9bK/exec";
-const TMDB_AUTH = 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJlMTdlOTMxYjY4MjM1NjBkNGNmMjc0YzhkZmZhMTc4YSIsIm5iZiI6MTc1MDE5MTEwOC40MjcsInN1YiI6IjY4NTFjYzA0YWViYTJkMmZlNGIzMTU0ZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Q-mtZuNx4NSIMwB1aO6vwA3MmzkiBOTALyFBLg8cwsc';
+function LandingPageContent() {
+  const { data: session } = useSession();
+  // Mock session for styling toggle - change to 'false' to see the logged-out state
+  const isDemoLoggedIn = false; 
 
-export default function Movies() {
-    const [draft, setDraft] = useState<{ name: string; starting: string[]; bench: string[] }[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [movieDetails, setMovieDetails] = useState<{ [key: string]: any }>({});
-    const [editingPlayerName, setEditingPlayerName] = useState<string | null>(null);
-    const [openBench, setOpenBench] = useState<Set<string>>(new Set());
-    // Track which SPECIFIC player is saving
-    const [savingPlayerName, setSavingPlayerName] = useState<string | null>(null);
+  useEffect(() => {
+        document.title = "Movie Boxing";
+  }, []);
 
-    const [selectedForExchange, setSelectedForExchange] = useState<{ id: string, isBench: boolean } | null>(null);
-    const [swapping, setSwapping] = useState<{ playerName: string, movieId: string, isBench: boolean } | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState<any[]>([]);
+  return (
+    <div className="min-h-screen bg-slate-950 text-white selection:bg-red-400 selection:text-black font-sans">
+      {/* Navigation */}
+      <Navbar />
 
-    const options = { method: 'GET', headers: { accept: 'application/json', Authorization: TMDB_AUTH } };
+      {/* Hero Section */}
+      <main className="relative overflow-hidden pt-20 pb-32">
+        {/* Visual Flair: Glow Background */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2/3 h-96 bg-red-600/10 blur-[120px] rounded-full" />
+        <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
+          <div className="inline-block px-4 py-1.5 mb-6 border border-red-600/30 rounded-full bg-red-600/5 text-red-600 text-xs font-bold uppercase tracking-widest">
+            Open Beta Now Live
+          </div>
+          <h2 className="text-6xl md:text-8xl font-black mb-8 leading-[0.9] uppercase italic tracking-tighter">
+            The Box Office <br />
+            <span className="text-red-600">Is Your Ring</span>
+          </h2>
+          <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-12 leading-relaxed">
+            Draft blockbusters, scout the indie sleepers, and trade your way to the top. 
+            The premier fantasy league for your cinephile friends.
+          </p>
 
-    useEffect(() => {
-        document.title = "Movie Boxing - Home";
-    }, []);
-
-    useEffect(() => {
-        async function fetchData() {
-            try {
-                const draftRes = await fetch(SCRIPT_URL);
-                const draftData = await draftRes.json();
-                setDraft(draftData);
-
-                const allIds = Array.from(new Set(draftData.flatMap((p: any) => [...p.starting, ...p.bench])));
-
-                // Fetch details for all IDs found in the sheet
-                const detailPromises = allIds.map(async (id: any) => {
-                    const res = await fetch(`https://api.themoviedb.org/3/movie/${id}`, options);
-                    return await res.json();
-                });
-
-                const results = await Promise.all(detailPromises);
-                const detailsMap: any = {};
-                results.forEach(m => { if (m.id) detailsMap[String(m.id)] = m; });
-                setMovieDetails(detailsMap);
-            } catch (err) { console.error(err); } finally { setLoading(false); }
-        }
-        fetchData();
-    }, []);
-
-    const saveToSheet = async (playerName: string) => {
-        const playerData = draft.find(p => p.name === playerName);
-        if (!playerData) return;
-
-        setSavingPlayerName(playerName); // Only this player shows "Saving..."
-        try {
-            await fetch(SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify(playerData)
-            });
-            setEditingPlayerName(null);
-        } catch (e) { alert("Save failed."); }
-        finally { setSavingPlayerName(null); }
-    };
-
-    const handleExchange = (playerName: string, movieId: string, isBench: boolean) => {
-        if (!selectedForExchange) {
-            setSelectedForExchange({ id: movieId, isBench });
-            return;
-        }
-        if (selectedForExchange.isBench === isBench) {
-            setSelectedForExchange({ id: movieId, isBench });
-            return;
-        }
-
-        const startId = isBench ? selectedForExchange.id : movieId;
-        const benchId = isBench ? movieId : selectedForExchange.id;
-        const startDetails = movieDetails[startId];
-
-        const startDate = startDetails?.release_date ? new Date(startDetails.release_date) : null;
-        if (startDate && startDate <= new Date() && startDate.getFullYear() <= 2026) {
-            alert("Cannot swap a released starter (unless 2027+).");
-            setSelectedForExchange(null);
-            return;
-        }
-
-        const newDraft = draft.map(p => {
-            if (p.name !== playerName) return p;
-            return {
-                ...p,
-                starting: p.starting.map(id => id === startId ? benchId : id),
-                bench: p.bench.map(id => id === benchId ? startId : id)
-            };
-        });
-
-        setDraft(newDraft);
-        setSelectedForExchange(null);
-    };
-
-    const handleReplace = async (movie: any) => {
-        if (!swapping) return;
-        const newId = String(movie.id);
-
-        // Fetch new details if we don't have them
-        if (!movieDetails[newId]) {
-            const res = await fetch(`https://api.themoviedb.org/3/movie/${newId}`, options);
-            const data = await res.json();
-            setMovieDetails(prev => ({ ...prev, [newId]: data }));
-        }
-
-        const newDraft = draft.map(p => {
-            if (p.name !== swapping.playerName) return p;
-            const update = (list: string[]) => list.map(id => id === swapping.movieId ? newId : id);
-            return swapping.isBench ? { ...p, bench: update(p.bench) } : { ...p, starting: update(p.starting) };
-        });
-
-        setDraft(newDraft);
-        setSwapping(null);
-    };
-
-    if (loading && draft.length === 0) return (
-        <div className="min-h-screen bg-black text-white p-4 md:p-12 font-sans">
-            <MovieHeader />
-            <div className="bg-black text-white flex items-center justify-center font-black italic tracking-widest animate-pulse">LOADING...</div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link href={session ? "/leagues" : "/register"} className="w-full sm:w-auto bg-red-600 text-black font-black text-xl px-10 py-5 rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-[0_0_30px_-5px_rgba(234,179,8,0.3)]">
+              {session ? "Enter the Arena" : "Get Started"}
+            </Link>
+            <a href="#rules" className="w-full sm:w-auto border border-slate-700 font-bold text-xl px-10 py-5 rounded-2xl hover:bg-slate-900 transition-colors">
+              Rules of Engagement
+            </a>
+            <a href="/leagues/123" className="w-full sm:w-auto border border-slate-700 font-bold text-xl px-10 py-5 rounded-2xl hover:bg-slate-900 transition-colors">
+              Temp Link to the Original League
+            </a>
+          </div>
         </div>
-    );
+      </main>
 
-
-
-    return (
-        <div className="min-h-screen bg-black text-white p-4 md:p-12 font-sans">
-            <div className="max-w-6xl mx-auto">
-                <MovieHeader />
-                {swapping && (
-                    <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4">
-                        <div className="bg-neutral-900 border border-neutral-700 p-6 rounded-2xl w-full max-w-md shadow-2xl">
-                            <h3 className="text-xl font-bold mb-4">Replace Movie</h3>
-                            <input
-                                autoFocus
-                                type="text"
-                                placeholder="Search movies..."
-                                className="w-full p-3 rounded bg-neutral-800 border border-neutral-700 mb-4 focus:border-blue-500 outline-none"
-                                onChange={(e) => {
-                                    if (e.target.value.length > 2) {
-                                        fetch(`https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(e.target.value)}`, options)
-                                            .then(r => r.json()).then(d => setSearchResults(d.results || []));
-                                    }
-                                }}
-                            />
-                            <div className="max-h-60 overflow-y-auto space-y-2">
-                                {searchResults.map(m => (
-                                    <div
-                                        key={m.id}
-                                        onClick={() => handleReplace(m)}
-                                        className="p-3 bg-neutral-800 hover:bg-blue-600 cursor-pointer rounded flex justify-between items-center group transition-colors"
-                                    >
-                                        <span className="font-medium text-sm">{m.title}</span>
-                                        {/* Added Release Year back here */}
-                                        <span className="text-[10px] font-bold bg-black/40 px-2 py-1 rounded text-neutral-400 group-hover:text-white">
-                                            {m.release_date ? m.release_date.split('-')[0] : 'TBD'}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                            <button
-                                onClick={() => { setSwapping(null); setSearchResults([]); }}
-                                className="w-full mt-6 text-sm font-bold text-neutral-500 hover:text-white transition-colors"
-                            >
-                                CANCEL
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                <div className="flex flex-col gap-10 w-full">
-                    {draft.map((player) => {
-                        const isEditing = editingPlayerName === player.name;
-                        return (
-                            <div key={player.name} className={`bg-neutral-900 border p-6 rounded-xl transition-all ${isEditing ? 'border-blue-500 ring-1 ring-blue-500/20' : 'border-neutral-800'}`}>
-                                <div className="flex justify-between items-center mb-6">
-                                    <div className="flex items-center gap-4">
-                                        <h2 className='text-2xl font-bold text-blue-500'>{player.name}</h2>
-                                        <button
-                                            // Disable if ANYONE is saving
-                                            disabled={savingPlayerName !== null}
-                                            onClick={() => isEditing ? saveToSheet(player.name) : setEditingPlayerName(player.name)}
-                                            className={`text-[10px] uppercase font-black px-4 py-2 rounded-full border transition-all duration-200
-        ${savingPlayerName === player.name
-                                                    ? 'bg-orange-600 border-orange-600 text-white animate-pulse cursor-wait w-[160px]' // Fixed width prevents jumping
-                                                    : isEditing
-                                                        ? 'bg-green-600 border-green-600 text-white hover:bg-green-500 shadow-lg shadow-green-900/20'
-                                                        : 'border-neutral-700 text-neutral-500 hover:text-white hover:border-neutral-500'} 
-        ${savingPlayerName !== null && savingPlayerName !== player.name ? 'opacity-30 cursor-not-allowed' : ''}`}
-                                        >
-                                            {savingPlayerName === player.name ? (
-                                                "⌛ SAVING... DON'T LEAVE"
-                                            ) : isEditing ? (
-                                                '💾 Save Changes'
-                                            ) : (
-                                                '✎ Edit'
-                                            )}
-                                        </button>
-                                    </div>
-                                    <button onClick={() => { const next = new Set(openBench); next.has(player.name) ? next.delete(player.name) : next.add(player.name); setOpenBench(next); }} className='px-4 py-2 bg-neutral-800 rounded-lg text-sm'>
-                                        {openBench.has(player.name) ? 'Hide Bench' : 'Show Bench'}
-                                    </button>
-                                </div>
-
-                                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4'>
-                                    {[...player.starting.map(id => ({ id, isBench: false })),
-                                    ...(openBench.has(player.name) ? player.bench.map(id => ({ id, isBench: true })) : [])
-                                    ].map((obj, idx) => {
-                                        const details = movieDetails[obj.id];
-                                        const isSelected = selectedForExchange?.id === obj.id;
-                                        const key = `${player.name}-${obj.isBench ? 'bench' : 'starting'}-${idx}`;
-
-                                        return (
-                                            <MovieCard
-                                                key={key}
-                                                playerName={player.name}
-                                                movieId={obj.id}
-                                                isBench={obj.isBench}
-                                                details={details}
-                                                isSelected={isSelected}
-                                                isEditing={isEditing}
-                                                selectedForExchange={selectedForExchange}
-                                                setSwapping={setSwapping}
-                                                handleExchange={handleExchange}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
+      {/* Feature Grid */}
+      <section className="max-w-6xl mx-auto px-6 py-24 border-t border-slate-900">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {[
+            { title: "Live Details", desc: "Real-time data for every major theatrical release." },
+            { title: "Auto Scoring", desc: "Automated scoring based on global box office performance data." },
+            { title: "Dirty Trading", desc: "Negotiate trades for upcoming films to save your season." }
+          ].map((feature, i) => (
+            <div key={i} className="p-10 rounded-[2rem] bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 hover:border-red-600/50 transition-colors group">
+              <div className="w-12 h-12 bg-red-600/10 rounded-xl flex items-center justify-center mb-6 text-red-600 font-bold text-xl group-hover:bg-red-600 group-hover:text-black transition-all">
+                0{i + 1}
+              </div>
+              <h3 className="text-2xl font-black mb-4 uppercase italic">{feature.title}</h3>
+              <p className="text-slate-400 leading-relaxed">{feature.desc}</p>
             </div>
+          ))}
         </div>
-    );
+      </section>
+
+      {/* Rules Section (The Playbook) */}
+      <section id="rules" className="max-w-6xl mx-auto px-6 py-24 border-t border-slate-900">
+        <div className="mb-16">
+          <h2 className="text-5xl font-black uppercase italic tracking-tighter">
+            The <span className="text-red-600">Official</span> Playbook
+          </h2>
+          <p className="text-slate-400 mt-2">Know the regulations before you step into the ring.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          
+          {/* Rule 1: Drafting */}
+          <div className="flex gap-6">
+            <span className="text-4xl font-black text-slate-800 italic">01</span>
+            <div>
+              <h3 className="text-xl font-bold uppercase text-red-600 mb-2 italic">The Draft Phase</h3>
+              <p className="text-slate-300 leading-relaxed">
+                Build your core stable. Draft your movies and finalize your starting lineup once the draft concludes. These are your heavy hitters.
+              </p>
+            </div>
+          </div>
+
+          {/* Rule 2: Swapping */}
+          <div className="flex gap-6">
+            <span className="text-4xl font-black text-slate-800 italic">02</span>
+            <div>
+              <h3 className="text-xl font-bold uppercase text-red-600 mb-2 italic">Benching & Rosters</h3>
+              <p className="text-slate-300 leading-relaxed">
+                Flexibility is key. Freely swap benched movies into your starting 5 if both are unreleased. If a starter is delayed past the league window, you can sub in a released bench movie to keep your score climbing.
+              </p>
+            </div>
+          </div>
+
+          {/* Rule 3: Trading */}
+          <div className="flex gap-6">
+            <span className="text-4xl font-black text-slate-800 italic">03</span>
+            <div>
+              <h3 className="text-xl font-bold uppercase text-red-600 mb-2 italic">The Trade Block</h3>
+              <p className="text-slate-300 leading-relaxed">
+                Keep the market moving. One-for-one movie trades are allowed throughout the season. Negotiate with rivals to optimize your portfolio.
+              </p>
+            </div>
+          </div>
+
+          {/* Rule 4: Free Agency */}
+          <div className="flex gap-6">
+            <span className="text-4xl font-black text-slate-800 italic">04</span>
+            <div>
+              <h3 className="text-xl font-bold uppercase text-red-600 mb-2 italic">Free Agent Signings</h3>
+              <p className="text-slate-300 leading-relaxed">
+                Scout the wire. Once per period (typically monthly), sign any unclaimed movie by discarding an unreleased film. Discarded movies (even those previously drafted) are fair game for the rest of the league.
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Final Scoring Callout */}
+        <div className="mt-20 p-8 rounded-3xl bg-red-600 text-black">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div>
+              <h3 className="text-2xl font-black uppercase italic">Final Calculations</h3>
+              <p className="font-medium opacity-90">
+                Total box office includes all earnings up to the final second of the League timeframe. 
+                We use the official **TMDB Numbers** as our source of truth.
+              </p>
+            </div>
+            <div className="text-4xl font-black italic opacity-20 hidden md:block">
+              SCOREBOARD
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <Footer />
+    </div>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <SessionProvider>
+      <LandingPageContent />
+    </SessionProvider>
+  );
 }
