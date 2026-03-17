@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import MovieHeader from '../components/MovieHeader';
 
-const REGISTER_URL = "https://movie-boxing-api-crcre7fbeednahfq.eastus-01.azurewebsites.net/api/register"; // Adjust if the endpoint differs
+const REGISTER_URL = process.env.REGISTER_URL; // Adjust if the endpoint differs
 
 export default function Register() {
     const [formData, setFormData] = useState({
@@ -33,6 +33,12 @@ export default function Register() {
 
         if (formData.password !== formData.confirmPassword) {
             setError('Passwords do not match');
+            setLoading(false);
+            return;
+        }
+
+        if (!REGISTER_URL) {
+            setError('Registration service is not configured');
             setLoading(false);
             return;
         }
