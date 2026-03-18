@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import MovieHeader from '../components/MovieHeader';
 
-const LOGIN_URL = process.env.LOGIN_URL; // Adjust if the endpoint differs
+const LOGIN_URL = process.env.NEXT_PUBLIC_LOGIN_URL; // Adjust if the endpoint differs
 
 export default function Register() {
     const [formData, setFormData] = useState({

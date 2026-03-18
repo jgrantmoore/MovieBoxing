@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import MovieHeader from '../components/MovieHeader';
 
-const REGISTER_URL = process.env.REGISTER_URL; // Adjust if the endpoint differs
+const REGISTER_URL = process.env.NEXT_PUBLIC_REGISTER_URL; // Adjust if the endpoint differs
 
 export default function Register() {
     const [formData, setFormData] = useState({
@@ -63,7 +63,7 @@ export default function Register() {
                 setError(data.message || 'Registration failed');
             }
         } catch (err) {
-            setError('An error occurred. Please try again.');
+            setError('An error occurred. Please try again. ' + (err instanceof Error ? err.message : ''));
         } finally {
             setLoading(false);
         }
