@@ -2,24 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import MovieHeader from '../components/MovieHeader';
 
-const LOGIN_URL = process.env.NEXT_PUBLIC_LOGIN_URL; // Adjust if the endpoint differs
-
-export default function Register() {
+export default function LoginPage() {
     const [formData, setFormData] = useState({
-        name: '',
         username: '',
-        email: '',
         password: '',
-        confirmPassword: ''
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const router = useRouter();
 
     useEffect(() => {
-        document.title = "Movie Boxing - Register";
+        document.title = "Movie Boxing - Login";
     }, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -31,37 +27,24 @@ export default function Register() {
         setError('');
         setLoading(true);
 
-        if (formData.password !== formData.confirmPassword) {
-            setError('Passwords do not match');
-            setLoading(false);
-            return;
-        }
-
-        if (!LOGIN_URL) {
-            setError('Login service is not configured');
-            setLoading(false);
-            return;
-        }
-
         try {
-            const res = await fetch(LOGIN_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    username: formData.username,
-                    password: formData.password
-                })
+            // We use NextAuth's signIn to manage the session cookie automatically
+            const res = await signIn('credentials', {
+                username: formData.username,
+                password: formData.password,
+                redirect: false, // Handle the redirect manually to show errors
             });
 
-            if (res.ok) {
-                // Assuming registration succeeds, redirect to login or dashboard
-                router.push('/login'); // Adjust route as needed
+            if (res?.error) {
+                // This captures errors returned from your [...nextauth] authorize function
+                setError("Invalid username or password. Please try again.");
             } else {
-                const data = await res.json();
-                setError(data.message || 'Registration failed');
+                // Success! NextAuth has set the session cookie.
+                router.push('/dashboard'); 
+                router.refresh(); // Forces Next.js to re-check the session state
             }
         } catch (err) {
-            setError('An error occurred. Please try again.');
+            setError('An unexpected error occurred. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -72,15 +55,15 @@ export default function Register() {
             <div className="max-w-md mx-auto">
                 <MovieHeader />
 
-                <div className="bg-neutral-900 rounded-3xl border-2 border-neutral-800 p-6 md:p-8">
-                    <h1 className="text-3xl font-black uppercase italic tracking-tighter mb-6 text-center">
+                <div className="bg-neutral-900 rounded-3xl border-2 border-neutral-800 p-6 md:p-8 mt-8">
+                    <h1 className="text-4xl font-black uppercase italic tracking-tighter mb-8 text-center text-white">
                         Login
                     </h1>
 
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-5">
                         <div>
-                            <label htmlFor="username" className="block text-sm font-bold uppercase tracking-wider mb-1">
-                                Username/Email
+                            <label htmlFor="username" className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400">
+                                Username / Email
                             </label>
                             <input
                                 type="text"
@@ -89,11 +72,13 @@ export default function Register() {
                                 value={formData.username}
                                 onChange={handleChange}
                                 required
-                                className="w-full px-3 py-2 bg-black border border-neutral-700 rounded text-white focus:outline-none focus:border-white"
+                                placeholder="Enter your credentials"
+                                className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors placeholder:text-neutral-600"
                             />
                         </div>
+
                         <div>
-                            <label htmlFor="password" className="block text-sm font-bold uppercase tracking-wider mb-1">
+                            <label htmlFor="password" className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400">
                                 Password
                             </label>
                             <input
@@ -103,26 +88,34 @@ export default function Register() {
                                 value={formData.password}
                                 onChange={handleChange}
                                 required
-                                className="w-full px-3 py-2 bg-black border border-neutral-700 rounded text-white focus:outline-none focus:border-white"
+                                placeholder="••••••••"
+                                className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors placeholder:text-neutral-600"
                             />
                         </div>
 
                         {error && (
-                            <p className="text-red-500 text-sm">{error}</p>
+                            <div className="bg-red-500/10 border border-red-500/50 p-3 rounded-lg">
+                                <p className="text-red-500 text-sm font-medium text-center">{error}</p>
+                            </div>
                         )}
 
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-white text-black font-black uppercase tracking-wider py-3 rounded hover:bg-neutral-200 disabled:opacity-50"
+                            className="w-full bg-white text-black font-black uppercase tracking-widest py-4 rounded-xl hover:bg-neutral-200 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4"
                         >
-                            {loading ? 'Logging In...' : 'Login'}
+                            {loading ? 'Authenticating...' : 'Sign In'}
                         </button>
                     </form>
 
-                    <p className="text-center text-sm mt-4">
-                        Don't have an account? <a href="/register" className="underline">Register here</a>
-                    </p>
+                    <div className="text-center mt-8 pt-6 border-t border-neutral-800">
+                        <p className="text-neutral-400 text-sm">
+                            New to the league?{' '}
+                            <a href="/register" className="text-white font-bold underline decoration-neutral-700 underline-offset-4 hover:decoration-white transition-all">
+                                Create an Account
+                            </a>
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>

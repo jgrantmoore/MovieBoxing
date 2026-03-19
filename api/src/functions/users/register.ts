@@ -30,7 +30,7 @@ export async function register(request: HttpRequest, context: InvocationContext)
 }
 
 app.http('register', { 
-    methods: ['POST'], 
+    methods: ['POST', 'OPTIONS'], 
     route: 'register', 
     handler: register 
 });

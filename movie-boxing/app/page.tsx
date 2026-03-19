@@ -10,7 +10,7 @@ import Footer from "./components/Footer";
 function LandingPageContent() {
   const { data: session } = useSession();
   // Mock session for styling toggle - change to 'false' to see the logged-out state
-  const isDemoLoggedIn = false; 
+  const isDemoLoggedIn = true; 
 
   useEffect(() => {
         document.title = "Movie Boxing";
