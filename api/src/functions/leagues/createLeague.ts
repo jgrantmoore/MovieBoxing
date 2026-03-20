@@ -1,47 +1,53 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { poolPromise, sql } from "../../db";
 import { CreateLeagueBody } from "../../models/DatabaseModels";
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import * as bcrypt from 'bcrypt';
 
-
 /**
- * Create a new league.
+ * Create a new league and automatically assign the creator a team.
  */
 export async function createLeague(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    // Get and verify JWT token
+    // 1. Verify Authorization Header
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        context.warn("Unauthorized attempt: Missing or malformed Bearer token.");
         return { status: 401, body: "Unauthorized" };
     }
-    const token = authHeader.substring(7); // Remove 'Bearer '
-
+    
+    const token = authHeader.substring(7);
     let adminUserId: number;
+
     try {
+        // Verify the JWT matches your secret
         const payload = jwt.verify(token, process.env.JWT_SECRET!) as any;
-        adminUserId = payload.userId; // Assuming 'userId' in JWT payload
+        adminUserId = payload.userId; 
     } catch (error) {
-        return { status: 401, body: "Invalid token" };
+        context.error("JWT Verification failed:", error);
+        return { status: 401, body: "Invalid or expired token" };
     }
 
+    // 2. Parse and Validate Request Body
     const body = await request.json() as Partial<CreateLeagueBody>;
     
-    // Validate required fields (excluding AdminUserId and LeagueId)
     if (!body.LeagueName || !body.StartDate || !body.EndDate || 
         body.StartingNumber === undefined || body.BenchNumber === undefined || 
         !body.JoinPassword || !body.PreferredReleaseDate || body.FreeAgentsAllowed === undefined) {
-        return { status: 400, body: "Missing required fields" };
+        return { status: 400, body: "Missing required fields for league creation." };
     }
 
     const pool = await poolPromise;
+    // We use a Transaction to ensure we don't create a league without an owner team
+    const transaction = new sql.Transaction(pool);
 
     try {
-
         const saltRounds = 12;
         const hashedPassword = await bcrypt.hash(body.JoinPassword, saltRounds);
-        const pool = await poolPromise;
 
-        const result = await pool.request()
+        await transaction.begin();
+
+        // 3. Insert the League
+        const leagueResult = await transaction.request()
             .input('LeagueName', sql.NVarChar, body.LeagueName)
             .input('AdminUserId', sql.Int, adminUserId)
             .input('StartDate', sql.DateTime, new Date(body.StartDate))
@@ -52,22 +58,52 @@ export async function createLeague(request: HttpRequest, context: InvocationCont
             .input('PreferredReleaseDate', sql.NVarChar, body.PreferredReleaseDate)
             .input('FreeAgentsAllowed', sql.Bit, body.FreeAgentsAllowed)
             .query(`
-                INSERT INTO Leagues (LeagueName, AdminUserId, StartDate, EndDate, StartingNumber, BenchNumber, JoinPasswordHash, PreferredReleaseDate, FreeAgentsAllowed)
-                OUTPUT INSERTED.*
-                VALUES (@LeagueName, @AdminUserId, @StartDate, @EndDate, @StartingNumber, @BenchNumber, @JoinPasswordHash, @PreferredReleaseDate, @FreeAgentsAllowed)
+                INSERT INTO Leagues (
+                    LeagueName, AdminUserId, StartDate, EndDate, 
+                    StartingNumber, BenchNumber, JoinPasswordHash, 
+                    PreferredReleaseDate, FreeAgentsAllowed
+                )
+                OUTPUT INSERTED.LeagueId, INSERTED.LeagueName
+                VALUES (
+                    @LeagueName, @AdminUserId, @StartDate, @EndDate, 
+                    @StartingNumber, @BenchNumber, @JoinPasswordHash, 
+                    @PreferredReleaseDate, @FreeAgentsAllowed
+                )
             `);
 
-        if (result.recordset.length > 0) {
-            return { status: 201, jsonBody: result.recordset[0] };
-        } else {
-            return { status: 500, body: "Failed to create league" };
-        }
+        const leagueId = leagueResult.recordset[0].LeagueId;
+
+        // 4. Automatically Create the Admin's Team
+        await transaction.request()
+            .input('LeagueId', sql.Int, leagueId)
+            .input('OwnerUserId', sql.Int, adminUserId)
+            .input('TeamName', sql.NVarChar, `${body.LeagueName} Admin`) 
+            .query(`
+                INSERT INTO Teams (LeagueId, OwnerUserId, TeamName)
+                VALUES (@LeagueId, @OwnerUserId, @TeamName)
+            `);
+
+        // Commit both inserts
+        await transaction.commit();
+
+        return { 
+            status: 201, 
+            jsonBody: { 
+                success: true,
+                league: leagueId 
+            } 
+        };
+
     } catch (error) {
-        context.log(`Error creating league: ${error}`);
-        return { status: 500, body: "Internal server error" };
+        // If anything failed, undo the league creation
+        if (transaction) await transaction.rollback();
+        
+        context.error(`Database Error in CreateLeague: ${error}`);
+        return { status: 500, body: "Internal server error occurred while creating league." };
     }
 }
 
+// Function Registration
 app.http('createLeague', {
     methods: ['POST'],
     route: 'leagues/create',

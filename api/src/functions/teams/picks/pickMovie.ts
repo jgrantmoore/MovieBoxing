@@ -108,6 +108,6 @@ export async function pickMovie(request: HttpRequest, context: InvocationContext
 
 app.http('pickMovie', {
     methods: ['POST'],
-    route: 'teams/pickmovie',
+    route: 'teams/picks/new',
     handler: pickMovie
 });

@@ -19,7 +19,7 @@ export async function login(request: HttpRequest, context: InvocationContext): P
         }
 
         // Generate JWT
-        const token = jwt.sign({ userId: user.UserId }, process.env.JWT_SECRET!, { expiresIn: '1h' });
+        const token = jwt.sign({ userId: user.UserId, name: user.DisplayName }, process.env.JWT_SECRET!, { expiresIn: '1h' });
         
         return { jsonBody: { token } };
     } catch (err) {

@@ -1,5 +1,28 @@
-import NextAuth, { NextAuthOptions } from "next-auth";
+import NextAuth, { NextAuthOptions, DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+
+// Standard NextAuth types don't include 'accessToken' or 'id' on the session.
+// We extend them here so TypeScript is happy.
+declare module "next-auth" {
+  interface Session {
+    accessToken?: string;
+    user: {
+      id: string;
+    } & DefaultSession["user"];
+  }
+
+  interface User {
+    id: string;
+    accessToken?: string;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    accessToken?: string;
+    sub?: string;
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -17,22 +40,21 @@ export const authOptions: NextAuthOptions = {
           const res = await fetch(`${process.env.NEXT_PUBLIC_LOGIN_URL}`, {
             method: 'POST',
             body: JSON.stringify({
-              email: credentials.username, // Adjust key to match your API expectation
+              email: credentials.username, 
               password: credentials.password,
             }),
             headers: { "Content-Type": "application/json" }
           });
 
-          const user = await res.json();
+          const data = await res.json();
 
-          // 2. If the API returns a user and no error, return it to NextAuth
-          if (res.ok && user) {
-            // NextAuth expects an object with at least an 'id' or 'email'
+          // 2. Map the Azure response to the NextAuth User object
+          if (res.ok && data.token) {
             return {
-              id: user.UserId || user.id, 
-              name: user.Username || user.name,
-              email: user.Email || user.email,
-              image: user.ProfilePic || null,
+              // NextAuth requires 'id' as a string
+              id: data.userId || "1", 
+              name: data.DisplayName || credentials.username,
+              accessToken: data.token, // This is the JWT from your Azure Function
             };
           }
           
@@ -45,25 +67,29 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    // This attaches the user ID to the session so you can use it in your hooks
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.sub as string;
-      }
-      return session;
-    },
+    // This runs whenever a JWT is created or updated
     async jwt({ token, user }) {
       if (user) {
+        token.accessToken = user.accessToken;
         token.sub = user.id;
       }
       return token;
-    }
+    },
+    // This runs whenever the session is checked (useSession, getServerSession)
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.sub as string;
+        session.accessToken = token.accessToken;
+      }
+      return session;
+    },
   },
   pages: {
-    signIn: '/login', // Redirects users here if they aren't logged in
+    signIn: '/login',
   },
   session: {
     strategy: "jwt",
+    maxAge: 60 * 60, // 1 hour to match your Azure JWT expiry
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

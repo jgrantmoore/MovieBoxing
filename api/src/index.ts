@@ -14,6 +14,7 @@ import './functions/teams/createTeam';
 import './functions/teams/deleteTeam';
 import './functions/teams/getUserTeams';
 import './functions/teams/updateTeam';
+import './functions/teams/getUserTeamsAndPicks';
 
 import './functions/users/getUser';
 import './functions/users/login';

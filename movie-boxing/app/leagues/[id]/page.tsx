@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import MovieCard from '../../components/MovieCard';
+import MovieCardOld from '../../components/MovieCardOld';
 import MovieHeader from '../../components/MovieHeader';
 import Navbar from '../../components/Navbar';
 import LeagueHeader from '../../components/LeagueHeader';
@@ -226,7 +226,7 @@ export default function Movies() {
                                             const key = `${player.name}-${obj.isBench ? 'bench' : 'starting'}-${idx}`;
 
                                             return (
-                                                <MovieCard
+                                                <MovieCardOld
                                                     key={key}
                                                     playerName={player.name}
                                                     movieId={obj.id}

@@ -51,7 +51,7 @@ export interface CreateLeagueBody {
     BenchNumber: number;
     JoinPassword: string;
     PreferredReleaseDate: string;
-    FreeAgentsAllowed: number;
+    FreeAgentsAllowed: boolean;
 }
 
 export interface PickMovieBody {

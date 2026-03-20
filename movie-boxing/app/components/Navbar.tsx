@@ -6,7 +6,7 @@ import { useSession, signOut } from 'next-auth/react';
 import BoxingGloveL from '@/public/images/Movies/boxingloveL.png';
 import BoxingGloveR from '@/public/images/Movies/boxingloveR.png';
 import Image from "next/image";
-import { Menu, X } from "lucide-react"; // Optional: npm install lucide-react for icons
+import { Menu, X } from "lucide-react";
 
 const Navbar: React.FC = () => {
     const { data: session } = useSession();
@@ -38,7 +38,7 @@ const Navbar: React.FC = () => {
                 <div className="hidden md:flex items-center space-x-6 font-medium">
                     {session ? (
                         <>
-                            <Link href="#" className="text-slate-400 hover:text-white transition-colors">Dashboard</Link>
+                            <Link href="/dashboard" className="text-slate-400 hover:text-white transition-colors">Dashboard</Link>
                             <Link href="/leagues" className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-700 transition-all">
                                 Leagues
                             </Link>
@@ -69,7 +69,7 @@ const Navbar: React.FC = () => {
                 <div className="flex flex-col space-y-4 p-6 bg-slate-950">
                     {session ? (
                         <>
-                            <Link href="#" onClick={toggleMenu} className="text-lg font-medium">Dashboard</Link>
+                            <Link href="/dashboard" onClick={toggleMenu} className="text-lg font-medium">Dashboard</Link>
                             <Link href="/leagues" onClick={toggleMenu} className="text-lg font-medium text-red-500">Leagues</Link>
                             <button onClick={() => signOut()} className="text-left text-lg font-medium text-slate-400">Logout</button>
                         </>

@@ -135,7 +135,7 @@ function LandingPageContent() {
               <h3 className="text-2xl font-black uppercase italic">Final Calculations</h3>
               <p className="font-medium opacity-90">
                 Total box office includes all earnings up to the final second of the League timeframe. 
-                We use the official **TMDB Numbers** as our source of truth.
+                We use the official <span className="font-bold">TMDB</span> Box Office Numbers as our source of truth.
               </p>
             </div>
             <div className="text-4xl font-black italic opacity-20 hidden md:block">
