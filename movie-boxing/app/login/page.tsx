@@ -19,6 +19,12 @@ export default function LoginPage() {
         document.title = "Movie Boxing - Login";
     }, []);
 
+    useEffect(() => {
+        // Just a "Ping" to wake up the Azure Function while the user is typing
+        fetch(`${process.env.NEXT_PUBLIC_AZURE_API_URL}/movies`, { method: 'GET' })
+            .catch(() => { }); // We don't care if it fails, we just want to wake it up
+    }, []);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
@@ -113,6 +119,13 @@ export default function LoginPage() {
                         </form>
 
                         <div className="text-center mt-8 pt-6 border-t border-neutral-800">
+                            <button
+                                onClick={() => signIn('google', { callbackUrl: '/leagues' })}
+                                className="w-full bg-white text-black font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-neutral-200 transition-all mb-4"
+                            >
+                                <img src="/google-icon.svg" className="w-5 h-5" alt="Google" />
+                                Sign in with Google
+                            </button>
                             <p className="text-neutral-400 text-sm">
                                 New to the league?{' '}
                                 <a href="/register" className="text-white font-bold underline decoration-neutral-700 underline-offset-4 hover:decoration-white transition-all">

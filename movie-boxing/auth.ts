@@ -1,5 +1,6 @@
 import NextAuth, { NextAuthOptions, DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 
 // Standard NextAuth types don't include 'accessToken' or 'id' on the session.
 // We extend them here so TypeScript is happy.
@@ -26,6 +27,10 @@ declare module "next-auth/jwt" {
 
 export const authOptions: NextAuthOptions = {
   providers: [
+    GoogleProvider({
+      clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_SECRET!,
+    }),
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -34,6 +39,9 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) return null;
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
         try {
           // 1. Call your Azure Function Login endpoint
@@ -75,7 +83,26 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
-    // This runs whenever the session is checked (useSession, getServerSession)
+    async signIn({ user, account, profile }) {
+      if (account?.provider === "google") {
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/sync-google`, {
+            method: 'POST',
+            body: JSON.stringify({
+              email: user.email,
+              name: user.name,
+              image: user.image,
+              googleId: user.id
+            }),
+            headers: { 'Content-Type': 'application/json' }
+          });
+          return response.ok; // If false, NextAuth denies sign-in
+        } catch (error) {
+          return false;
+        }
+      }
+      return true;
+    },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub as string;

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import MovieHeader from '../components/MovieHeader';
 import Navbar from '../components/Navbar';
+import { signIn } from 'next-auth/react';
 
 const REGISTER_URL = process.env.NEXT_PUBLIC_REGISTER_URL; // Adjust if the endpoint differs
 
@@ -21,6 +22,12 @@ export default function Register() {
 
     useEffect(() => {
         document.title = "Movie Boxing - Register";
+    }, []);
+
+    useEffect(() => {
+        // Just a "Ping" to wake up the Azure Function while the user is typing
+        fetch(`${process.env.NEXT_PUBLIC_AZURE_API_URL}/movies`, { method: 'GET' })
+            .catch(() => { }); // We don't care if it fails, we just want to wake it up
     }, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -182,6 +189,13 @@ export default function Register() {
                         </form>
 
                         <div className="text-center mt-8 pt-6 border-t border-neutral-800">
+                            <button
+                                onClick={() => signIn('google', { callbackUrl: '/leagues' })}
+                                className="w-full bg-white text-black font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-neutral-200 transition-all mb-4"
+                            >
+                                <img src="/google-icon.svg" className="w-5 h-5" alt="Google" />
+                                Sign up`` with Google
+                            </button>
                             <p className="text-neutral-400 text-sm">
                                 Already have an account?{' '}
                                 <a href="/login" className="text-white font-bold underline decoration-neutral-700 underline-offset-4 hover:decoration-white transition-all">

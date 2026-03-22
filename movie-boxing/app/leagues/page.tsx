@@ -18,6 +18,10 @@ export default function Leagues() {
   const TOTAL_SLOTS = STARTING_SLOTS + BENCH_SLOTS;
 
   useEffect(() => {
+    document.title = "Movie Boxing - Your Leagues";
+  }, []);
+
+  useEffect(() => {
     async function fetchData() {
       if (!session?.accessToken) return;
       try {
