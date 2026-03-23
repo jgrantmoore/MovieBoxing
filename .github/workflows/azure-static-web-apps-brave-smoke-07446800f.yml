@@ -33,7 +33,7 @@ jobs:
           NEXT_PUBLIC_NEXTAUTH_URL: https://movieboxing.com
           NEXT_PUBLIC_REGISTER_URL: https://api.movieboxing.com/api/register
           NEXT_PUBLIC_LOGIN_URL: https://api.movieboxing.com/api/login
-          NEXT_API_URL: https://api.movieboxing.com/api
+          NEXT_PUBLIC_API_URL: https://api.movieboxing.com/api
           ###### End of Environment Variables ######
 
   close_pull_request_job:
