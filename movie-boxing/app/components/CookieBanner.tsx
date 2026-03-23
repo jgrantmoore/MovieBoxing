@@ -9,11 +9,11 @@ const CookieBanner = () => {
   useEffect(() => {
     // Check if user already accepted
     const consent = localStorage.getItem('cookie-consent');
-    //if (!consent) {
+    if (!consent) {
       // Small delay so it doesn't pop in instantly on page load
       const timer = setTimeout(() => setIsVisible(true), 2000);
       return () => clearTimeout(timer);
-    //}
+    }
   }, []);
 
   const handleAccept = () => {
