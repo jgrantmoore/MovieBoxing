@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import MovieHeader from '../components/MovieHeader';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
     const [formData, setFormData] = useState({
@@ -14,6 +16,7 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const router = useRouter();
+    const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => {
         document.title = "Movie Boxing - Login";
@@ -21,7 +24,7 @@ export default function LoginPage() {
 
     useEffect(() => {
         // Just a "Ping" to wake up the Azure Function while the user is typing
-        fetch(`${process.env.NEXT_PUBLIC_AZURE_API_URL}/movies`, { method: 'GET' })
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/movies`, { method: 'GET' })
             .catch(() => { }); // We don't care if it fails, we just want to wake it up
     }, []);
 
@@ -87,20 +90,34 @@ export default function LoginPage() {
                                 />
                             </div>
 
-                            <div>
-                                <label htmlFor="password" className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400">
+                            <div className="space-y-2">
+                                <label htmlFor="password" className="block text-xs font-bold uppercase tracking-widest text-neutral-400">
                                     Password
                                 </label>
-                                <input
-                                    type="password"
-                                    id="password"
-                                    name="password"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    required
-                                    placeholder="••••••••"
-                                    className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors placeholder:text-neutral-600"
-                                />
+                                <div className="relative group">
+                                    <input
+                                        type={showPassword ? "text" : "password"} // Dynamic type
+                                        id="password"
+                                        name="password"
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        required
+                                        placeholder="••••••••"
+                                        className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors placeholder:text-neutral-600 pr-12" // pr-12 makes room for the button
+                                    />
+                                    <button
+                                        type="button" // Important: prevents form submission
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-neutral-500 hover:text-white transition-colors focus:outline-none"
+                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                    >
+                                        {showPassword ? (
+                                            <EyeOff size={18} strokeWidth={2.5} />
+                                        ) : (
+                                            <Eye size={18} strokeWidth={2.5} />
+                                        )}
+                                    </button>
+                                </div>
                             </div>
 
                             {error && (
@@ -136,6 +153,7 @@ export default function LoginPage() {
                     </div>
                 </div>
             </main>
+            <Footer />
         </div>
     );
 }

@@ -39,7 +39,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) return null;
-        
+
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000);
 
@@ -91,8 +91,6 @@ export const authOptions: NextAuthOptions = {
             body: JSON.stringify({
               email: user.email,
               name: user.name,
-              image: user.image,
-              googleId: user.id
             }),
             headers: { 'Content-Type': 'application/json' }
           });

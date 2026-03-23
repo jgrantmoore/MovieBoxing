@@ -4,7 +4,7 @@ import { poolPromise } from "../../db";
 
 export async function syncGoogleUser(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     try {
-        const { email, name, image } = await request.json() as any;
+        const { email, name } = await request.json() as any;
 
         if (!email) {
             return { status: 400, body: "Email is required from Google provider." };

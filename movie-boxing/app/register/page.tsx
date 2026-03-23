@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import MovieHeader from '../components/MovieHeader';
 import Navbar from '../components/Navbar';
 import { signIn } from 'next-auth/react';
+import Footer from '../components/Footer';
 
 const REGISTER_URL = process.env.NEXT_PUBLIC_REGISTER_URL; // Adjust if the endpoint differs
 
@@ -26,7 +27,7 @@ export default function Register() {
 
     useEffect(() => {
         // Just a "Ping" to wake up the Azure Function while the user is typing
-        fetch(`${process.env.NEXT_PUBLIC_AZURE_API_URL}/movies`, { method: 'GET' })
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/movies`, { method: 'GET' })
             .catch(() => { }); // We don't care if it fails, we just want to wake it up
     }, []);
 
@@ -94,7 +95,7 @@ export default function Register() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label htmlFor="name" className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400">
-                                        Name
+                                        Display Name
                                     </label>
                                     <input
                                         type="text"
@@ -103,7 +104,7 @@ export default function Register() {
                                         value={formData.name}
                                         onChange={handleChange}
                                         required
-                                        placeholder="John Doe"
+                                        placeholder="John"
                                         className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors placeholder:text-neutral-600"
                                     />
                                 </div>
@@ -194,7 +195,7 @@ export default function Register() {
                                 className="w-full bg-white text-black font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-neutral-200 transition-all mb-4"
                             >
                                 <img src="/google-icon.svg" className="w-5 h-5" alt="Google" />
-                                Sign up`` with Google
+                                Sign up with Google
                             </button>
                             <p className="text-neutral-400 text-sm">
                                 Already have an account?{' '}
@@ -206,6 +207,7 @@ export default function Register() {
                     </div>
                 </div>
             </main>
+            <Footer />
         </div>
     );
 }
