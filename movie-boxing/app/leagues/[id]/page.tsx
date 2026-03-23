@@ -1,253 +1,160 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import MovieCardOld from '../../components/MovieCardOld';
-import MovieHeader from '../../components/MovieHeader';
-import Navbar from '../../components/Navbar';
-import LeagueHeader from '../../components/LeagueHeader';
-import Footer from '../../components/Footer';
+import Link from "next/link";
+import Navbar from "../../components/Navbar";
+import MovieCard from "../../components/MovieCard";
+import { useSession } from 'next-auth/react';
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwfFyIGgGM1ijXqmsNF_QwTSfhsPtmAJZCJef1LhynJ7aamawhh0qpqY-9RpyH1W9bK/exec";
-const TMDB_AUTH = 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJlMTdlOTMxYjY4MjM1NjBkNGNmMjc0YzhkZmZhMTc4YSIsIm5iZiI6MTc1MDE5MTEwOC40MjcsInN1YiI6IjY4NTFjYzA0YWViYTJkMmZlNGIzMTU0ZSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Q-mtZuNx4NSIMwB1aO6vwA3MmzkiBOTALyFBLg8cwsc';
+export default function Leagues() {
+  const { data: session } = useSession();
+  const [teams, setTeams] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [openBench, setOpenBench] = useState<Set<number>>(new Set());
 
-export default function Movies() {
-    const [draft, setDraft] = useState<{ name: string; starting: string[]; bench: string[] }[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [movieDetails, setMovieDetails] = useState<{ [key: string]: any }>({});
-    const [editingPlayerName, setEditingPlayerName] = useState<string | null>(null);
-    const [openBench, setOpenBench] = useState<Set<string>>(new Set());
-    // Track which SPECIFIC player is saving
-    const [savingPlayerName, setSavingPlayerName] = useState<string | null>(null);
+  // Default League Rules (Can be dynamic later)
+  const STARTING_SLOTS = 5;
+  const BENCH_SLOTS = 3;
+  const TOTAL_SLOTS = STARTING_SLOTS + BENCH_SLOTS;
 
-    const [selectedForExchange, setSelectedForExchange] = useState<{ id: string, isBench: boolean } | null>(null);
-    const [swapping, setSwapping] = useState<{ playerName: string, movieId: string, isBench: boolean } | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState<any[]>([]);
+  useEffect(() => {
+    document.title = "Movie Boxing - Your Leagues";
+  }, []);
 
-    const options = { method: 'GET', headers: { accept: 'application/json', Authorization: TMDB_AUTH } };
-
-    useEffect(() => {
-        document.title = "Movie Boxing - Home";
-    }, []);
-
-    useEffect(() => {
-        async function fetchData() {
-            try {
-                const draftRes = await fetch(SCRIPT_URL);
-                const draftData = await draftRes.json();
-                setDraft(draftData);
-
-                const allIds = Array.from(new Set(draftData.flatMap((p: any) => [...p.starting, ...p.bench])));
-
-                // Fetch details for all IDs found in the sheet
-                const detailPromises = allIds.map(async (id: any) => {
-                    const res = await fetch(`https://api.themoviedb.org/3/movie/${id}`, options);
-                    return await res.json();
-                });
-
-                const results = await Promise.all(detailPromises);
-                const detailsMap: any = {};
-                results.forEach(m => { if (m.id) detailsMap[String(m.id)] = m; });
-                setMovieDetails(detailsMap);
-            } catch (err) { console.error(err); } finally { setLoading(false); }
-        }
-        fetchData();
-    }, []);
-
-    const saveToSheet = async (playerName: string) => {
-        const playerData = draft.find(p => p.name === playerName);
-        if (!playerData) return;
-
-        setSavingPlayerName(playerName); // Only this player shows "Saving..."
-        try {
-            await fetch(SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify(playerData)
-            });
-            setEditingPlayerName(null);
-        } catch (e) { alert("Save failed."); }
-        finally { setSavingPlayerName(null); }
-    };
-
-    const handleExchange = (playerName: string, movieId: string, isBench: boolean) => {
-        if (!selectedForExchange) {
-            setSelectedForExchange({ id: movieId, isBench });
-            return;
-        }
-        if (selectedForExchange.isBench === isBench) {
-            setSelectedForExchange({ id: movieId, isBench });
-            return;
-        }
-
-        const startId = isBench ? selectedForExchange.id : movieId;
-        const benchId = isBench ? movieId : selectedForExchange.id;
-        const startDetails = movieDetails[startId];
-
-        const startDate = startDetails?.release_date ? new Date(startDetails.release_date) : null;
-        if (startDate && startDate <= new Date() && startDate.getFullYear() <= 2026) {
-            alert("Cannot swap a released starter (unless 2027+).");
-            setSelectedForExchange(null);
-            return;
-        }
-
-        const newDraft = draft.map(p => {
-            if (p.name !== playerName) return p;
-            return {
-                ...p,
-                starting: p.starting.map(id => id === startId ? benchId : id),
-                bench: p.bench.map(id => id === benchId ? startId : id)
-            };
+  useEffect(() => {
+    async function fetchData() {
+      if (!session?.accessToken) return;
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/teams/my-teams`, {
+          headers: { 'Authorization': `Bearer ${session.accessToken}` }
         });
-
-        setDraft(newDraft);
-        setSelectedForExchange(null);
-    };
-
-    const handleReplace = async (movie: any) => {
-        if (!swapping) return;
-        const newId = String(movie.id);
-
-        // Fetch new details if we don't have them
-        if (!movieDetails[newId]) {
-            const res = await fetch(`https://api.themoviedb.org/3/movie/${newId}`, options);
-            const data = await res.json();
-            setMovieDetails(prev => ({ ...prev, [newId]: data }));
+        if (res.ok) {
+          const data = await res.json();
+          setTeams(data);
         }
+      } catch (err) {
+        console.error("Fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [session]);
 
-        const newDraft = draft.map(p => {
-            if (p.name !== swapping.playerName) return p;
-            const update = (list: string[]) => list.map(id => id === swapping.movieId ? newId : id);
-            return swapping.isBench ? { ...p, bench: update(p.bench) } : { ...p, starting: update(p.starting) };
-        });
-
-        setDraft(newDraft);
-        setSwapping(null);
-    };
-
-    if (loading && draft.length === 0) return (
-        <div className="min-h-screen bg-slate-950 text-white font-sans">
-            <Navbar />
-            <div className="min-h-screen bg-slate-950 text-white p-4 md:p-12 font-sans">
-                <div className="bg-slate-950 text-white flex items-center justify-center font-black italic tracking-widest animate-pulse">LOADING...</div>
-            </div>
-        </div>
-    );
-
-
-
+  if (loading) {
     return (
-        <div className="min-h-screen bg-slate-950 text-white font-sans">
-            <Navbar />
-            <div className="min-h-screen bg-slate-950 text-white p-4 md:p-12 font-sans">
-                <LeagueHeader leagueName="Your League" />
-                <div className="max-w-6xl mx-auto">
-                    {swapping && (
-                        <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[100] p-4">
-                            <div className="bg-neutral-900 border border-neutral-700 p-6 rounded-2xl w-full max-w-md shadow-2xl">
-                                <h3 className="text-xl font-bold mb-4">Replace Movie</h3>
-                                <input
-                                    autoFocus
-                                    type="text"
-                                    placeholder="Search movies..."
-                                    className="w-full p-3 rounded bg-neutral-800 border border-neutral-700 mb-4 focus:border-blue-500 outline-none"
-                                    onChange={(e) => {
-                                        if (e.target.value.length > 2) {
-                                            fetch(`https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(e.target.value)}`, options)
-                                                .then(r => r.json()).then(d => setSearchResults(d.results || []));
-                                        }
-                                    }}
-                                />
-                                <div className="max-h-60 overflow-y-auto space-y-2">
-                                    {searchResults.map(m => (
-                                        <div
-                                            key={m.id}
-                                            onClick={() => handleReplace(m)}
-                                            className="p-3 bg-neutral-800 hover:bg-blue-600 cursor-pointer rounded flex justify-between items-center group transition-colors"
-                                        >
-                                            <span className="font-medium text-sm">{m.title}</span>
-                                            {/* Added Release Year back here */}
-                                            <span className="text-[10px] font-bold bg-black/40 px-2 py-1 rounded text-neutral-400 group-hover:text-white">
-                                                {m.release_date ? m.release_date.split('-')[0] : 'TBD'}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                                <button
-                                    onClick={() => { setSwapping(null); setSearchResults([]); }}
-                                    className="w-full mt-6 text-sm font-bold text-neutral-500 hover:text-white transition-colors"
-                                >
-                                    CANCEL
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="flex flex-col gap-10 w-full">
-                        {draft.map((player) => {
-                            const isEditing = editingPlayerName === player.name;
-                            return (
-                                <div key={player.name} className={`bg-gradient-to-b from-slate-925 to-slate-950 border p-6 rounded-xl transition-all ${isEditing ? 'border-blue-500 ring-1 ring-blue-500/20' : 'border-neutral-800'}`}>
-                                    <div className="flex justify-between items-center mb-6">
-                                        <div className="flex items-center gap-4">
-                                            <h2 className='text-2xl font-bold text-red-600'>{player.name}</h2>
-                                            <button
-                                                // Disable if ANYONE is saving
-                                                disabled={savingPlayerName !== null}
-                                                onClick={() => isEditing ? saveToSheet(player.name) : setEditingPlayerName(player.name)}
-                                                className={`text-[10px] uppercase font-black px-4 py-2 rounded-full border transition-all duration-200
-            ${savingPlayerName === player.name
-                                                        ? 'bg-orange-600 border-orange-600 text-white animate-pulse cursor-wait w-[160px]' // Fixed width prevents jumping
-                                                        : isEditing
-                                                            ? 'bg-green-600 border-green-600 text-white hover:bg-green-500 shadow-lg shadow-green-900/20'
-                                                            : 'border-neutral-700 text-neutral-500 hover:text-white hover:border-neutral-500'} 
-            ${savingPlayerName !== null && savingPlayerName !== player.name ? 'opacity-30 cursor-not-allowed' : ''}`}
-                                            >
-                                                {savingPlayerName === player.name ? (
-                                                    "⌛ SAVING... DON'T LEAVE"
-                                                ) : isEditing ? (
-                                                    '💾 Save Changes'
-                                                ) : (
-                                                    '✎ Edit'
-                                                )}
-                                            </button>
-                                        </div>
-                                        <button onClick={() => { const next = new Set(openBench); next.has(player.name) ? next.delete(player.name) : next.add(player.name); setOpenBench(next); }} className='px-4 py-2 bg-neutral-800 rounded-lg text-sm'>
-                                            {openBench.has(player.name) ? 'Hide Bench' : 'Show Bench'}
-                                        </button>
-                                    </div>
-
-                                    <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4'>
-                                        {[...player.starting.map(id => ({ id, isBench: false })),
-                                        ...(openBench.has(player.name) ? player.bench.map(id => ({ id, isBench: true })) : [])
-                                        ].map((obj, idx) => {
-                                            const details = movieDetails[obj.id];
-                                            const isSelected = selectedForExchange?.id === obj.id;
-                                            const key = `${player.name}-${obj.isBench ? 'bench' : 'starting'}-${idx}`;
-
-                                            return (
-                                                <MovieCardOld
-                                                    key={key}
-                                                    playerName={player.name}
-                                                    movieId={obj.id}
-                                                    isBench={obj.isBench}
-                                                    details={details}
-                                                    isSelected={isSelected}
-                                                    isEditing={isEditing}
-                                                    selectedForExchange={selectedForExchange}
-                                                    setSwapping={setSwapping}
-                                                    handleExchange={handleExchange}
-                                                />
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
-            <Footer />
+      <div className="min-h-screen bg-slate-950 text-white font-sans">
+        <Navbar />
+        <div className="max-w-6xl mx-auto px-6 py-24 text-center">
+          <h1 className="text-4xl font-black mb-8 uppercase italic tracking-tighter">Your Leagues</h1>
+          <p className="text-lg text-slate-400 animate-pulse">Loading Roster...</p>
         </div>
+      </div>
     );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white selection:bg-red-400 selection:text-black font-sans">
+      <Navbar />
+      <div className="max-w-6xl mx-auto px-6 py-20 md:py-24">
+        <h1 className="text-4xl font-black mb-12 uppercase italic tracking-tighter text-center">
+          Your Movie Boxing Leagues
+        </h1>
+
+        <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
+          <p className="text-lg text-slate-400">
+            {session ? `Welcome, ${session.user?.name}` : "Please log in to view your teams."}
+          </p>
+          <Link href="/leagues/create" className="bg-red-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-red-700 transition-all uppercase tracking-tight">
+            Create New League
+          </Link>
+        </div>
+
+        <div className="space-y-16">
+          {teams.length > 0 ? (
+            teams.map((team) => {
+              // Calculate Total Box Office for STARTING movies only
+              const totalBoxOffice = team.Picks.reduce((sum: number, pick: any) => {
+                return pick.OrderDrafted <= STARTING_SLOTS ? sum + (pick.BoxOffice || 0) : sum;
+              }, 0);
+
+              return (
+                <div key={team.LeagueName} className="bg-neutral-900/40 rounded-3xl border border-neutral-800 p-8 shadow-2xl relative overflow-hidden">
+                  <div className="flex justify-between items-start mb-8 border-b border-neutral-800/50 pb-6 md:flex-row flex-col gap-4">
+                    <div>
+                      <h2 className="text-4xl font-black uppercase italic text-red-600 tracking-tighter">
+                        {team.LeagueName}
+                      </h2>
+                      <p className="text-s text-neutral-500 font-mono mt-1">{team.TeamName}</p>
+                    </div>
+                    <div className="text-left md:text-right flex flex-row md:flex-row-reverse justify-between items-center w-full md:w-auto items-end gap-6">
+                      <div>
+                        <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-widest">Team Total</p>
+                        <p className="text-3xl font-mono font-black text-white">
+                          ${(totalBoxOffice / 1000000).toFixed(1)}M
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => { const next = new Set(openBench); next.has(team.TeamName) ? next.delete(team.TeamName) : next.add(team.TeamName); setOpenBench(next); }}
+                        className='px-4 py-2 bg-neutral-800 rounded-lg text-sm'
+                      >
+                        {openBench.has(team.TeamName) ? 'Hide Bench' : 'Show Bench'}
+                      </button>
+                    </div>
+
+                  </div>
+
+                  {/* Single Unified Grid */}
+                  {/* Updated Unified Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                    {Array.from({
+                      // If team name is in the Set, show 8 (TOTAL), otherwise show 5 (STARTING)
+                      length: openBench.has(team.TeamName) ? TOTAL_SLOTS : STARTING_SLOTS
+                    }).map((_, idx) => {
+                      const slotNumber = idx + 1;
+                      const pick = team.Picks.find((p: any) => p.OrderDrafted === slotNumber);
+
+                      if (pick) {
+                        return (
+                          <MovieCard
+                            key={`pick-${team.TeamId}-${pick.MovieId}`}
+                            movieId={pick.MovieId}
+                            title={pick.Title}
+                            posterUrl={pick.PosterUrl}
+                            boxOffice={pick.BoxOffice}
+                            releaseDate={pick.ReleaseDate}
+                            // A pick is on the bench if its drafted order is > 5
+                            isBench={slotNumber > STARTING_SLOTS}
+                          />
+                        );
+                      } else {
+                        return (
+                          <MovieCard
+                            key={`empty-${team.TeamId}-${slotNumber}`}
+                            movieId={0}
+                            title="Open Slot"
+                            posterUrl={null}
+                            boxOffice={0}
+                            releaseDate={null}
+                            isBench={slotNumber > STARTING_SLOTS}
+                          />
+                        );
+                      }
+                    })}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="bg-neutral-900 rounded-3xl border-2 border-dashed border-neutral-800 p-20 text-center">
+              <p className="text-slate-500 mb-6 text-xl italic font-medium">You haven't joined any leagues yet.</p>
+              <Link href="/leagues/create" className="text-red-500 font-black hover:text-white transition-colors text-2xl uppercase italic tracking-tighter">
+                Start a New League →
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }

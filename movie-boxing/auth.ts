@@ -2,8 +2,6 @@ import NextAuth, { NextAuthOptions, DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 
-// Standard NextAuth types don't include 'accessToken' or 'id' on the session.
-// We extend them here so TypeScript is happy.
 declare module "next-auth" {
   interface Session {
     accessToken?: string;
@@ -41,7 +39,7 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.username || !credentials?.password) return null;
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
 
         try {
           // 1. Call your Azure Function Login endpoint
@@ -51,8 +49,11 @@ export const authOptions: NextAuthOptions = {
               email: credentials.username, 
               password: credentials.password,
             }),
-            headers: { "Content-Type": "application/json" }
+            headers: { "Content-Type": "application/json" },
+            signal: controller.signal //abort if it takes longer than 60 seconds, for the Azure cold start
           });
+
+          clearTimeout(timeoutId);
 
           const data = await res.json();
 
@@ -114,7 +115,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
-    maxAge: 60 * 60, // 1 hour to match your Azure JWT expiry
+    maxAge: 60 * 60 * 24, // 1 hour to match your Azure JWT expiry
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

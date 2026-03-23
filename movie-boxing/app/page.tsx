@@ -46,7 +46,7 @@ function LandingPageContent() {
             <a href="#rules" className="w-full sm:w-auto border border-slate-700 font-bold text-xl px-10 py-5 rounded-2xl hover:bg-slate-900 transition-colors">
               Rules of Engagement
             </a>
-            <a href="/leagues/123" className="w-full sm:w-auto border border-slate-700 font-bold text-xl px-10 py-5 rounded-2xl hover:bg-slate-900 transition-colors">
+            <a href="/leagues/old" className="w-full sm:w-auto border border-slate-700 font-bold text-xl px-10 py-5 rounded-2xl hover:bg-slate-900 transition-colors">
               Temp Link to the Original League
             </a>
           </div>

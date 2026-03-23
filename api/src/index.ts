@@ -20,6 +20,7 @@ import './functions/users/getUser';
 import './functions/users/login';
 import './functions/users/register';
 import './functions/users/updateUser';
+import './functions/users/getTopPerformingMovies';
 
 app.setup({
     enableHttpStream: true,

@@ -2,40 +2,168 @@
 
 import { useState, useEffect } from 'react';
 import MovieCard from '../components/MovieCard';
-import MovieHeader from '../components/MovieHeader';
 import Navbar from '../components/Navbar';
-import LeagueHeader from '../components/LeagueHeader';
 import Footer from '../components/Footer';
+import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 
-export default function Movies() {
-    const [draft, setDraft] = useState<{ name: string; starting: string[]; bench: string[] }[]>([]);
-    const [loading, setLoading] = useState(false);
+export default function Dashboard() {
+    const { data: session } = useSession();
+    const [teams, setTeams] = useState<any[]>([]);
+    const [topMovies, setTopMovies] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [openBench, setOpenBench] = useState<Set<string>>(new Set());
+
+    const STARTING_SLOTS = 5;
+    const TOTAL_SLOTS = 8;
 
     useEffect(() => {
         document.title = "Movie Boxing - Dashboard";
     }, []);
 
+    useEffect(() => {
+        async function fetchData() {
+            if (!session?.accessToken) return;
 
-    if (loading) return (
-        <div className="min-h-screen bg-slate-950 text-white font-sans">
-            <Navbar />
-            <div className="min-h-screen bg-slate-950 text-white p-4 md:p-12 font-sans">
-                <div className="bg-slate-950 text-white flex items-center justify-center font-black italic tracking-widest animate-pulse">LOADING...</div>
-            </div>
-        </div>
-    );
+            setLoading(true);
+            try {
+                // 1. Fetch user's teams
+                const teamRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/teams/my-teams`, {
+                    headers: { 'Authorization': `Bearer ${session.accessToken}` }
+                });
+
+                // 2. Fetch top performing movies
+                const movieRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/top-performing-movies`, {
+                    headers: { 'Authorization': `Bearer ${session.accessToken}` }
+                });
+
+                if (teamRes.ok) setTeams(await teamRes.json());
+                if (movieRes.ok) setTopMovies(await movieRes.json());
+
+            } catch (err) {
+                console.error("Dashboard Load Error:", err);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchData();
+    }, [session]);
+
+    const toggleBench = (leagueName: string) => {
+        const next = new Set(openBench);
+        if (next.has(leagueName)) next.delete(leagueName);
+        else next.add(leagueName);
+        setOpenBench(next);
+    };
 
     return (
-        <div className="min-h-screen bg-slate-950 text-white font-sans">
+        <div className="min-h-screen bg-slate-950 text-white font-sans selection:bg-red-500">
             <Navbar />
-            <div className="min-h-screen bg-slate-950 text-white p-4 md:p-12 font-sans">
-                <LeagueHeader leagueName="Your Dashboard" />
-                <div className="max-w-6xl mx-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                    </div>
-                </div>
-            </div>
+
+            <main className="max-w-7xl mx-auto px-6 py-12 md:py-20">
+                <header className="mb-16 text-center md:text-left">
+                    <h1 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter mb-4">
+                        Your <span className="text-red-600">Dashboard</span>
+                    </h1>
+                    <p className="text-neutral-500 font-mono uppercase tracking-widest text-sm">
+                        Welcome back, {session?.user?.name || 'Contender'}
+                    </p>
+                </header>
+
+                {/* Section 1: Top Performing Movies (The SQL Query Result) */}
+                <section className="mb-20">
+                    <h2 className="text-2xl font-black uppercase italic mb-8 border-l-4 border-white pl-4">
+                        Top Performers
+                    </h2>
+                    {loading ? (
+                        <div className="py-20 text-center animate-pulse font-black italic text-neutral-700 text-4xl">
+                            SYNCING DATA...
+                        </div>
+                    ) : topMovies.length > 0 ? (
+                        topMovies.map((movie) => (
+                            <MovieCard
+                                key={movie.MovieId}
+                                movieId={movie.MovieId}
+                                title={movie.Title}
+                                posterUrl={movie.PosterUrl}
+                                boxOffice={movie.BoxOffice}
+                                releaseDate={movie.ReleaseDate}
+                                isBench={false}
+                            />
+                        ))
+                    ) : (
+                        <div className="bg-neutral-900/50 rounded-3xl border-2 border-dashed border-neutral-800 p-20 text-center">
+                            <p className="text-neutral-500 mb-6 italic">No top performers found.</p>
+                            <Link href="/leagues" className="bg-red-600 text-white px-8 py-3 rounded-xl font-black uppercase italic hover:bg-red-700 transition-all">
+                                Find a League
+                            </Link>
+                        </div>
+                    )}
+                </section>
+
+                {/* Section 2: Active Leagues & Teams */}
+                <section className="space-y-12">
+                    <h2 className="text-2xl font-black uppercase italic mb-8 border-l-4 border-white pl-4">
+                        Active Leagues
+                    </h2>
+
+                    {loading ? (
+                        <div className="py-20 text-center animate-pulse font-black italic text-neutral-700 text-4xl">
+                            SYNCING DATA...
+                        </div>
+                    ) : teams.length > 0 ? (
+                        teams.map((team) => {
+                            const totalBoxOffice = team.Picks.reduce((sum: number, pick: any) => {
+                                return pick.OrderDrafted <= STARTING_SLOTS ? sum + (pick.BoxOffice || 0) : sum;
+                            }, 0);
+
+                            return (
+                                <div key={team.LeagueName} className="bg-neutral-900/30 rounded-3xl border border-neutral-800 p-6 md:p-10 shadow-2xl">
+                                    <div className="flex flex-col md:flex-row justify-between items-end md:items-center mb-8 gap-6">
+                                        <div>
+                                            <h3 className="text-3xl font-black uppercase italic text-red-600 leading-none">{team.LeagueName}</h3>
+                                            <p className="text-neutral-500 font-mono text-sm mt-2">{team.TeamName}</p>
+                                        </div>
+
+                                        <div className="flex items-center gap-8 w-full md:w-auto justify-between border-t border-neutral-800 pt-6 md:border-none md:pt-0">
+                                            <div className="text-right">
+                                                <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-widest">Team Total</p>
+                                                <p className="text-3xl font-mono font-black">${(totalBoxOffice / 1000000).toFixed(1)}M</p>
+                                            </div>
+                                            <button
+                                                onClick={() => toggleBench(team.LeagueName)}
+                                                className="px-5 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-xl text-xs font-bold uppercase tracking-tight transition-colors"
+                                            >
+                                                {openBench.has(team.LeagueName) ? 'Hide Bench' : 'Show Bench'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                                        {Array.from({ length: openBench.has(team.LeagueName) ? TOTAL_SLOTS : STARTING_SLOTS }).map((_, idx) => {
+                                            const slot = idx + 1;
+                                            const pick = team.Picks.find((p: any) => p.OrderDrafted === slot);
+                                            return pick ? (
+                                                <MovieCard key={slot} {...pick} isBench={slot > STARTING_SLOTS} />
+                                            ) : (
+                                                <MovieCard key={slot} title="Open Slot" isBench={slot > STARTING_SLOTS} />
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <div className="bg-neutral-900/50 rounded-3xl border-2 border-dashed border-neutral-800 p-20 text-center">
+                            <p className="text-neutral-500 mb-6 italic">No active leagues found.</p>
+                            <Link href="/leagues" className="bg-red-600 text-white px-8 py-3 rounded-xl font-black uppercase italic hover:bg-red-700 transition-all">
+                                Find a League
+                            </Link>
+                        </div>
+                    )}
+                </section>
+            </main>
             <Footer />
         </div>
     );
-}``
+}
