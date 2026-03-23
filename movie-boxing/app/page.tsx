@@ -10,10 +10,10 @@ import Footer from "./components/Footer";
 function LandingPageContent() {
   const { data: session } = useSession();
   // Mock session for styling toggle - change to 'false' to see the logged-out state
-  const isDemoLoggedIn = true; 
+  const isDemoLoggedIn = true;
 
   useEffect(() => {
-        document.title = "Movie Boxing";
+    document.title = "Movie Boxing";
   }, []);
 
   return (
@@ -34,7 +34,7 @@ function LandingPageContent() {
             <span className="text-red-600">Is Your Ring</span>
           </h2>
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-12 leading-relaxed">
-            Draft blockbusters, scout the indie sleepers, and trade your way to the top. 
+            Draft blockbusters, scout the indie sleepers, and trade your way to the top.
             The premier fantasy league for your cinephile friends.
           </p>
 
@@ -51,6 +51,40 @@ function LandingPageContent() {
           </div>
         </div>
       </main>
+
+      {/* The Concept - New Section */}
+      <section className="max-w-6xl mx-auto px-6 py-24 relative">
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 text-[20rem] font-black text-slate-900/20 italic select-none z-0">
+          VS
+        </div>
+
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div>
+            <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter mb-8 leading-none">
+              What is <span className="text-red-600 text-6xl block mt-2">Movie Boxing?</span>
+            </h2>
+            <div className="space-y-6 text-xl text-slate-300">
+              <p>
+                It’s <span className="text-white font-bold italic">Fantasy Football</span>, but for the box office. Instead of drafting quarterbacks and wide receivers, you draft the biggest blockbusters and the gutsiest indie sleepers of the season.
+              </p>
+              <p>
+                Your score isn't based on touchdowns—it’s based on <span className="text-white font-bold">global box office earnings</span>. If your movie dominates the charts, you dominate your friends.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            <div className="p-8 rounded-2xl bg-slate-900/50 border-l-4 border-red-600">
+              <h4 className="font-black uppercase italic text-sm text-red-600 mb-2">The Goal</h4>
+              <p className="text-slate-300">Assemble a roster of 5 films that will generate the highest combined box office revenue within the season timeframe.</p>
+            </div>
+            <div className="p-8 rounded-2xl bg-slate-900/50 border-l-4 border-white">
+              <h4 className="font-black uppercase italic text-sm text-white mb-2">The Stake</h4>
+              <p className="text-slate-300">Compete against your cinephile circle for bragging rights, trophies, or whatever <span className="text-white font-bold">punishment</span> you've agreed upon.</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Feature Grid */}
       <section className="max-w-6xl mx-auto px-6 py-24 border-t border-slate-900">
@@ -81,7 +115,7 @@ function LandingPageContent() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          
+
           {/* Rule 1: Drafting */}
           <div className="flex gap-6">
             <span className="text-4xl font-black text-slate-800 italic">01</span>
@@ -134,7 +168,7 @@ function LandingPageContent() {
             <div>
               <h3 className="text-2xl font-black uppercase italic">Final Calculations</h3>
               <p className="font-medium opacity-90">
-                Total box office includes all earnings up to the final second of the League timeframe. 
+                Total box office includes all earnings up to the final second of the League timeframe.
                 We use the official <span className="font-bold">TMDB</span> Box Office Numbers as our source of truth.
               </p>
             </div>
