@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { SessionProvider } from "next-auth/react";
 import { useEffect } from "react";
 import Footer from "./components/Footer";
+import CookieBanner from "./components/CookieBanner";
 
 function LandingPageContent() {
   const { data: session } = useSession();
@@ -178,7 +179,6 @@ function LandingPageContent() {
           </div>
         </div>
       </section>
-
       <Footer />
     </div>
   );
