@@ -25,6 +25,7 @@ export default function Leagues() {
     async function fetchData() {
       if (!session?.accessToken) return;
       try {
+        console.log("API_URL: ", process.env.NEXT_PUBLIC_API_URL);
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/teams/my-teams`, {
           headers: { 'Authorization': `Bearer ${session.accessToken}` }
         });
