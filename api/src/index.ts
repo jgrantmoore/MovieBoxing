@@ -24,6 +24,8 @@ import './functions/users/register';
 import './functions/users/updateUser';
 import './functions/users/getTopPerformingMovies';
 
+import './functions/warmer'
+
 app.setup({
     enableHttpStream: true,
 });
