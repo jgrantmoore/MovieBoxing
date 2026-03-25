@@ -8,11 +8,18 @@ export async function getUser(request: HttpRequest, context: InvocationContext):
         
         const movieId = request.query.get('id');
         if (!movieId) {
-            return { status: 400, body: "Movie ID is required" };
+            return { status: 400, body: "User ID is required" };
         }
         const result = await pool.request()
             .input('id', sql.Int, parseInt(movieId))
-            .query<User>('SELECT * FROM Users WHERE id = @id');
+            .query<User>(`
+                SELECT 
+                    U.UserId,
+                    U.Username,
+                    U.JoinDate,
+                    U.DisplayName
+                FROM Users U
+                WHERE UserId = @id`);
 
         if (result.recordset.length === 0) {
             return { status: 404, body: "User not found" };
@@ -22,7 +29,7 @@ export async function getUser(request: HttpRequest, context: InvocationContext):
 
         return {
             status: 200,
-            jsonBody: Users
+            jsonBody: Users[0]
         };
     } catch (err) {
         context.error('Database query failed:', err);
@@ -33,6 +40,6 @@ export async function getUser(request: HttpRequest, context: InvocationContext):
 app.http('getUser', {
     methods: ['GET'],
     authLevel: 'anonymous',
-    route: 'getUser',
+    route: 'user',
     handler: getUser
 });

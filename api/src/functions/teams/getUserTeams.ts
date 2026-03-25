@@ -16,7 +16,15 @@ export async function getUserTeams(request: HttpRequest, context: InvocationCont
         }
         const result = await pool.request()
             .input('userId', sql.Int, parseInt(userId))
-            .query<Team>('SELECT * FROM Teams WHERE OwnerUserId = @userId');
+            .query<Team>(`
+                SELECT 
+                    t.TeamId, 
+                    t.TeamName, 
+                    t.LeagueId,
+                    l.LeagueName,
+                FROM Teams 
+                LEFT JOIN Leagues l ON t.LeagueId = l.LeagueId
+                WHERE OwnerUserId = @userId`);
 
         if (result.recordset.length === 0) {
             return { status: 404, body: "No Teams found for this user" };

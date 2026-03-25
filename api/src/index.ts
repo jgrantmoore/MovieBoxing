@@ -4,6 +4,8 @@ import './functions/leagues/deleteLeague';
 import './functions/leagues/getLeagueInfo';
 import './functions/leagues/getMyLeagues';
 import './functions/leagues/updateLeague';
+import './functions/leagues/getLeague';
+import './functions/leagues/searchLeagues';
 
 import './functions/movies/boxOfficeUpdate';
 import './functions/movies/getMovieInfo';

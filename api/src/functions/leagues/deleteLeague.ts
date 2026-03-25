@@ -7,8 +7,8 @@ import jwt from 'jsonwebtoken';
  * Delete a league (admin only).
  */
 export async function deleteLeague(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    // Get leagueId from query
-    const leagueId = request.query.get('id');
+    const url = new URL(request.url);
+    const leagueId = url.searchParams.get('id');
     if (!leagueId) return { status: 400, body: "League ID is required" };
 
     // Get and verify JWT token
@@ -27,24 +27,59 @@ export async function deleteLeague(request: HttpRequest, context: InvocationCont
     }
 
     const pool = await poolPromise;
+    const transaction = new sql.Transaction(pool);
 
     try {
-        const result = await pool.request()
-            .input('LeagueId', sql.Int, parseInt(leagueId))
-            .input('UserId', sql.Int, userId)
-            .query(`
-                DELETE FROM Leagues
-                WHERE LeagueId = @LeagueId AND AdminUserId = @UserId
-            `);
+        await transaction.begin();
 
-        if (result.rowsAffected && result.rowsAffected[0] > 0) {
-            return { status: 200, body: "League deleted successfully" };
-        } else {
-            return { status: 403, body: "Forbidden: You are not the admin of this league or league not found" };
+        // 1. Verify Admin Status first before doing anything
+        const adminCheck = await transaction.request()
+            .input('LeagueId', sql.Int, leagueId)
+            .query(`SELECT AdminUserId FROM Leagues WHERE LeagueId = @LeagueId`);
+
+        if (adminCheck.recordset.length === 0) {
+            await transaction.rollback();
+            return { status: 404, body: "League not found" };
         }
+
+        if (adminCheck.recordset[0].AdminUserId !== userId) {
+            await transaction.rollback();
+            return { status: 403, body: "Only the Commissioner can scrap this league." };
+        }
+
+        const request = transaction.request();
+        request.input('LeagueId', sql.Int, leagueId);
+
+        // Execute deletions in the correct order to satisfy FK constraints
+        await request.query(`
+            -- Delete Trade Proposals involving teams in this league
+            DELETE FROM TradeProposals 
+            WHERE ProposingTeamId IN (SELECT TeamId FROM Teams WHERE LeagueId = @LeagueId)
+               OR TargetTeamId IN (SELECT TeamId FROM Teams WHERE LeagueId = @LeagueId);
+
+            -- Delete Picks
+            DELETE FROM TeamMovies WHERE LeagueId = @LeagueId;
+
+            -- Delete Snapshots
+            DELETE FROM LeagueMovieSnapshots WHERE LeagueId = @LeagueId;
+
+            -- Delete Draft Plans
+            DELETE FROM DraftPlans WHERE LeagueId = @LeagueId;
+
+            -- Delete Teams
+            DELETE FROM Teams WHERE LeagueId = @LeagueId;
+
+            -- Finally, Delete the League
+            DELETE FROM Leagues WHERE LeagueId = @LeagueId;
+        `);
+
+        await transaction.commit();
+        return { status: 200, body: "League and all associated data purged." };
+
     } catch (error) {
-        context.log(`Error deleting league: ${error}`);
-        return { status: 500, body: "Internal server error" };
+        if (transaction) await transaction.rollback();
+        context.log(`Error purging league: ${error}`);
+        return { status: 500, body: "Internal server error during purge." };
     }
 }
 

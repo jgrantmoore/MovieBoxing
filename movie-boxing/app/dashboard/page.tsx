@@ -92,11 +92,16 @@ export default function Dashboard() {
                             />
                         ))
                     ) : (
-                        <div className="bg-neutral-900/50 rounded-3xl border-2 border-dashed border-neutral-800 p-20 text-center">
+                        <div className="bg-neutral-900/50 rounded-3xl border-2 border-dashed border-neutral-800 p-20 text-center items-center flex flex-col">
                             <p className="text-neutral-500 mb-6 italic">No top performers found.</p>
-                            <Link href="/leagues" className="bg-red-600 text-white px-8 py-3 rounded-xl font-black uppercase italic hover:bg-red-700 transition-all">
-                                Find a League
-                            </Link>
+                            <div className='flex gap-4 md:flex-row flex-col items-center'>
+                                <Link href="/leagues" className="bg-red-600 text-white px-8 py-3 md:mb-0 mb-2 w-fit rounded-xl font-black uppercase italic hover:bg-red-700 transition-all">
+                                    Find a League
+                                </Link>
+                                <Link href="/leagues/create" className="bg-red-600 text-white px-8 py-3 w-fit rounded-xl font-black uppercase italic hover:bg-red-700 transition-all">
+                                    Create a League
+                                </Link>
+                            </div>
                         </div>
                     )}
                 </section>
@@ -119,10 +124,13 @@ export default function Dashboard() {
 
                             return (
                                 <div key={team.LeagueName} className="bg-neutral-900/30 rounded-3xl border border-neutral-800 p-6 md:p-10 shadow-2xl">
-                                    <div className="flex flex-col md:flex-row justify-between items-end md:items-center mb-8 gap-6">
+                                    <div className="flex flex-col md:flex-row justify-between md:items-end items-start md:items-center mb-8 gap-6">
                                         <div>
-                                            <h3 className="text-3xl font-black uppercase italic text-red-600 leading-none">{team.LeagueName}</h3>
-                                            <p className="text-neutral-500 font-mono text-sm mt-2">{team.TeamName}</p>
+                                            <Link href={`/leagues/${team.LeagueId}`} className="text-3xl font-black uppercase italic text-red-600 leading-none hover:underline">
+                                                <h3 className="text-3xl font-black uppercase italic text-red-600 leading-none">{team.LeagueName}</h3>
+                                            </Link>
+                                            <p className="text-neutral-500 font-mono text-md mt-2">{team.TeamName}</p>
+
                                         </div>
 
                                         <div className="flex items-center gap-8 w-full md:w-auto justify-between border-t border-neutral-800 pt-6 md:border-none md:pt-0">
@@ -154,11 +162,17 @@ export default function Dashboard() {
                             );
                         })
                     ) : (
-                        <div className="bg-neutral-900/50 rounded-3xl border-2 border-dashed border-neutral-800 p-20 text-center">
+                        <div className="bg-neutral-900/50 rounded-3xl border-2 border-dashed border-neutral-800 p-20 text-center flex flex-col items-center">
                             <p className="text-neutral-500 mb-6 italic">No active leagues found.</p>
-                            <Link href="/leagues" className="bg-red-600 text-white px-8 py-3 rounded-xl font-black uppercase italic hover:bg-red-700 transition-all">
-                                Find a League
-                            </Link>
+                            <div className='flex gap-4 md:flex-row flex-col items-center'>
+                                <Link href="/leagues" className="bg-red-600 text-white px-8 py-3 md:mb-0 mb-2 w-fit rounded-xl font-black uppercase italic hover:bg-red-700 transition-all">
+                                    Find a League
+                                </Link>
+                                <Link href="/leagues/create" className="bg-red-600 text-white px-8 py-3 w-fit rounded-xl font-black uppercase italic hover:bg-red-700 transition-all">
+                                    Create a League
+                                </Link>
+                            </div>
+
                         </div>
                     )}
                 </section>

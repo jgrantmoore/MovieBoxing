@@ -53,7 +53,7 @@ export default function Leagues() {
                     LeagueType: formData.LeagueType,
                     StartDate: formData.StartDate,
                     EndDate: formData.EndDate,
-                    JoinPassword: formData.Password,
+                    JoinPassword: formData.Password == '' ? null : formData.Password,
                     StartingNumber: Number(formData.StartingNumber),
                     BenchNumber: Number(formData.BenchNumber),
                     PreferredReleaseDate: formData.PreferredReleaseDate,
@@ -61,9 +61,19 @@ export default function Leagues() {
                 })
             });
 
-            // Success! NextAuth has set the session cookie.
-            router.push('/dashboard');
-            router.refresh(); // Forces Next.js to re-check the session state
+            if (!res.ok) {
+                if (res.status === 401) {
+                    setError("Session expired. Please log in again.");
+                    signOut({ callbackUrl: '/dashboard' });
+                } else {
+                    const errorData = await res.json();
+                    setError(errorData.message || "Failed to create league. Please try again.");
+                }
+                return;
+            } else {
+                router.push('/dashboard');
+                router.refresh(); // Forces Next.js to re-check the session state
+            }
 
         } catch (err) {
             setError('An unexpected error occurred. Please try again...' + err);
@@ -206,7 +216,7 @@ export default function Leagues() {
                             >
                                 <option value="">Select date type</option>
                                 <option value="us">US Release Date</option>
-                                <option value="intl">International Release Date</option>
+                                <option value="in">International Release Date</option>
                             </select>
                         </div>
                         <div className="mb-6">

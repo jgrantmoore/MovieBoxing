@@ -52,6 +52,6 @@ export async function getTopPerformingMovies(request: HttpRequest, context: Invo
 app.http('getTopPerformingMovies', {
     methods: ['GET'],
     authLevel: 'anonymous',
-    route: '/user/top-performing-movies',
+    route: 'user/top-performing-movies',
     handler: getTopPerformingMovies
 });

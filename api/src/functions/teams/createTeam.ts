@@ -25,7 +25,7 @@ export async function createTeam(request: HttpRequest, context: InvocationContex
     }
 
     const body = await request.json() as Partial<CreateTeamBody>;
-    
+
     // Validate required fields
     if (!body.TeamName || body.LeagueId === undefined || body.LeaguePassword === undefined) {
         return { status: 400, body: "Missing required fields" };
@@ -34,27 +34,30 @@ export async function createTeam(request: HttpRequest, context: InvocationContex
     const pool = await poolPromise;
 
     try {
-        // Verify league password
         const leagueResult = await pool.request()
             .input('LeagueId', sql.Int, body.LeagueId)
             .query(`
-                SELECT JoinPasswordHash 
+                SELECT 
+                JoinPasswordHash 
                 FROM Leagues 
-                WHERE LeagueId = @LeagueId
-            `);
+                WHERE LeagueId = @LeagueId`);
 
         if (leagueResult.recordset.length === 0) {
             return { status: 404, body: "League not found" };
         }
 
-        if (!(await bcrypt.compare(body.LeaguePassword, leagueResult.recordset[0].JoinPasswordHash))) {
-            return { status: 401, body: "Invalid league password." };
-        }
+        const dbHash = leagueResult.recordset[0].JoinPasswordHash;
 
-        const joinPasswordHash = leagueResult.recordset[0].JoinPasswordHash;
-        if (joinPasswordHash !== body.LeaguePassword) {
-            return { status: 403, body: "Incorrect league password" };
+        // 1. If the DB has a hash, we MUST verify the user's input
+        if (dbHash !== null) {
+            const isMatch = await bcrypt.compare(body.LeaguePassword || "", dbHash);
+            if (!isMatch) {
+                return { status: 401, body: "Invalid league password." };
+            }
         }
+        // 2. If dbHash is null, the league is public. 
+        // We ignore body.LeaguePassword and proceed to the INSERT.
+
     } catch (error) {
         context.log(`Error verifying league password: ${error}`);
         return { status: 500, body: "Internal server error" };

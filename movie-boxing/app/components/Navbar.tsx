@@ -38,15 +38,16 @@ const Navbar: React.FC = () => {
                 <div className="hidden md:flex items-center space-x-6 font-medium">
                     {session ? (
                         <>
-                            <Link href="/dashboard" className="text-slate-400 hover:text-white transition-colors">Dashboard</Link>
-                            <Link href="/leagues" className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-700 transition-all">
-                                Leagues
+                            <Link href={`/profile/${session?.user?.id}`} className="text-slate-400 py-2 hover:text-white transition-colors">Profile</Link>
+                            <Link href="/leagues" className="text-slate-400 py-2 hover:text-white transition-colors">Leagues</Link>
+                            <Link href="/dashboard" className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-700 transition-all">
+                                Dashboard
                             </Link>
-                            <button onClick={() => signOut()} className="text-slate-400 hover:text-white transition-colors">Logout</button>
+                            <button onClick={() => signOut()} className="text-slate-400 py-2 hover:text-white transition-colors">Logout</button>
                         </>
                     ) : (
                         <>
-                            <Link href="/login" className="hover:text-red-500 transition-colors">Login</Link>
+                            <Link href="/login" className="hover:text-red-500 py-2 transition-colors">Login</Link>
                             <Link href="/register" className="bg-white text-black px-5 py-2.5 rounded-full font-bold hover:bg-red-500 hover:text-white transition-all">
                                 Sign Up
                             </Link>
@@ -69,8 +70,9 @@ const Navbar: React.FC = () => {
                 <div className="flex flex-col space-y-4 p-6 bg-slate-950">
                     {session ? (
                         <>
-                            <Link href="/dashboard" onClick={toggleMenu} className="text-lg font-medium">Dashboard</Link>
-                            <Link href="/leagues" onClick={toggleMenu} className="text-lg font-medium text-red-500">Leagues</Link>
+                            <Link href="/profile" className="text-lg font-medium">Profile</Link>
+                            <Link href="/leagues" onClick={toggleMenu} className="text-lg font-medium">Leagues</Link>
+                            <Link href="/dashboard" onClick={toggleMenu} className="text-lg font-medium text-red-500">Dashboard</Link>
                             <button onClick={() => signOut()} className="text-left text-lg font-medium text-slate-400">Logout</button>
                         </>
                     ) : (

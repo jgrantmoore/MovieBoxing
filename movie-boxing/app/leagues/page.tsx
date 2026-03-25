@@ -45,11 +45,27 @@ export default function Leagues() {
     return (
       <div className="min-h-screen bg-slate-950 text-white font-sans">
         <Navbar />
-        <div className="max-w-6xl mx-auto px-6 py-24 text-center">
-          <h1 className="text-4xl font-black mb-8 uppercase italic tracking-tighter">Your Leagues</h1>
-          <p className="text-lg text-slate-400 animate-pulse">Loading Roster...</p>
+        <div className="max-w-6xl mx-auto px-6 py-20 md:py-24">
+          <header className="mb-16 text-center md:text-left flex md:flex-row flex-col justify-between md:items-end items-center">
+            <div>
+              <h1 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter mb-4">
+                Your <span className="text-red-600">Leagues</span>
+              </h1>
+              <p className="text-neutral-500 font-mono uppercase tracking-widest text-sm">
+                Loading leagues...
+              </p>
+            </div>
+            <div className="flex flex-row gap-4 text-center h-full">
+              <Link href="/leagues/search" className="bg-red-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-red-700 transition-all uppercase tracking-tight">
+                Search For Leagues
+              </Link>
+              <Link href="/leagues/create" className="bg-red-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-red-700 transition-all uppercase tracking-tight">
+                Create New League
+              </Link>
+            </div>
+          </header>
         </div>
-      </div>
+      </div >
     );
   }
 
@@ -57,17 +73,27 @@ export default function Leagues() {
     <div className="min-h-screen bg-slate-950 text-white selection:bg-red-400 selection:text-black font-sans">
       <Navbar />
       <div className="max-w-6xl mx-auto px-6 py-20 md:py-24">
-        <h1 className="text-4xl font-black mb-12 uppercase italic tracking-tighter text-center">
-          Your Movie Boxing Leagues
-        </h1>
+        <header className="mb-16 text-center md:text-left flex md:flex-row flex-col justify-between md:items-end items-center">
+          <div>
+            <h1 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter mb-4">
+              Your <span className="text-red-600">Leagues</span>
+            </h1>
+            <p className="text-neutral-500 font-mono uppercase tracking-widest text-sm">
+              Welcome back, {session?.user?.name || 'Contender'}
+            </p>
+          </div>
+          <div className="flex flex-row gap-4 text-center h-full">
+            <Link href="/leagues/search" className="bg-red-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-red-700 transition-all uppercase tracking-tight">
+              Search For Leagues
+            </Link>
+            <Link href="/leagues/create" className="bg-red-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-red-700 transition-all uppercase tracking-tight">
+              Create New League
+            </Link>
+          </div>
+        </header>
 
         <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
-          <p className="text-lg text-slate-400">
-            {session ? `Welcome, ${session.user?.name}` : "Please log in to view your teams."}
-          </p>
-          <Link href="/leagues/create" className="bg-red-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-red-700 transition-all uppercase tracking-tight">
-            Create New League
-          </Link>
+
         </div>
 
         <div className="space-y-16">
@@ -82,9 +108,9 @@ export default function Leagues() {
                 <div key={team.LeagueName} className="bg-neutral-900/40 rounded-3xl border border-neutral-800 p-8 shadow-2xl relative overflow-hidden">
                   <div className="flex justify-between items-start mb-8 border-b border-neutral-800/50 pb-6 md:flex-row flex-col gap-4">
                     <div>
-                      <h2 className="text-4xl font-black uppercase italic text-red-600 tracking-tighter">
-                        {team.LeagueName}
-                      </h2>
+                      <Link href={`/leagues/${team.LeagueId}`} className="text-3xl font-black uppercase italic text-red-600 leading-none hover:underline">
+                        <h3 className="text-3xl font-black uppercase italic text-red-600 leading-none">{team.LeagueName}</h3>
+                      </Link>
                       <p className="text-s text-neutral-500 font-mono mt-1">{team.TeamName}</p>
                     </div>
                     <div className="text-left md:text-right flex flex-row md:flex-row-reverse justify-between items-center w-full md:w-auto items-end gap-6">

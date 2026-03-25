@@ -32,7 +32,7 @@ export async function createLeague(request: HttpRequest, context: InvocationCont
     
     if (!body.LeagueName || !body.StartDate || !body.EndDate || 
         body.StartingNumber === undefined || body.BenchNumber === undefined || 
-        !body.JoinPassword || !body.PreferredReleaseDate || body.FreeAgentsAllowed === undefined) {
+        !body.PreferredReleaseDate || body.FreeAgentsAllowed === undefined) {
         return { status: 400, body: "Missing required fields for league creation." };
     }
 
@@ -41,8 +41,12 @@ export async function createLeague(request: HttpRequest, context: InvocationCont
     const transaction = new sql.Transaction(pool);
 
     try {
-        const saltRounds = 12;
-        const hashedPassword = await bcrypt.hash(body.JoinPassword, saltRounds);
+        if (body.JoinPassword) {
+            const saltRounds = 12;
+            body.JoinPassword = await bcrypt.hash(body.JoinPassword, saltRounds);
+        } else {
+            body.JoinPassword = null; // Ensure it's null if not provided
+        }
 
         await transaction.begin();
 
@@ -54,7 +58,7 @@ export async function createLeague(request: HttpRequest, context: InvocationCont
             .input('EndDate', sql.DateTime, new Date(body.EndDate))
             .input('StartingNumber', sql.Int, body.StartingNumber)
             .input('BenchNumber', sql.Int, body.BenchNumber)
-            .input('JoinPasswordHash', sql.NVarChar, hashedPassword)
+            .input('JoinPasswordHash', sql.NVarChar, body.JoinPassword)
             .input('PreferredReleaseDate', sql.NVarChar, body.PreferredReleaseDate)
             .input('FreeAgentsAllowed', sql.Bit, body.FreeAgentsAllowed)
             .query(`

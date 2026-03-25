@@ -7,12 +7,14 @@ declare module "next-auth" {
     accessToken?: string;
     user: {
       id: string;
+      username?: string; // Add this line
     } & DefaultSession["user"];
   }
 
   interface User {
     id: string;
     accessToken?: string;
+    username?: string; // Add this line
   }
 }
 
@@ -46,7 +48,7 @@ export const authOptions: NextAuthOptions = {
           const res = await fetch(`${process.env.NEXT_PUBLIC_LOGIN_URL}`, {
             method: 'POST',
             body: JSON.stringify({
-              email: credentials.username, 
+              username: credentials.username,
               password: credentials.password,
             }),
             headers: { "Content-Type": "application/json" },
@@ -57,16 +59,16 @@ export const authOptions: NextAuthOptions = {
 
           const data = await res.json();
 
-          // 2. Map the Azure response to the NextAuth User object
           if (res.ok && data.token) {
             return {
-              // NextAuth requires 'id' as a string
-              id: data.userId || "1", 
-              name: data.DisplayName || credentials.username,
-              accessToken: data.token, // This is the JWT from your Azure Function
+              id: String(data.userId),
+              name: data.displayName,
+              username: data.username, // Make sure this matches the key in your Azure jsonBody
+              email: data.email,
+              accessToken: data.token,
             };
           }
-          
+
           return null;
         } catch (error) {
           console.error("Auth error:", error);
@@ -76,36 +78,21 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    // This runs whenever a JWT is created or updated
     async jwt({ token, user }) {
       if (user) {
-        token.accessToken = user.accessToken;
         token.sub = user.id;
+        token.name = user.name;
+        token.accessToken = user.accessToken;
+        token.username = user.username; // Grab it from the authorize return
       }
       return token;
-    },
-    async signIn({ user, account, profile }) {
-      if (account?.provider === "google") {
-        try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/sync-google`, {
-            method: 'POST',
-            body: JSON.stringify({
-              email: user.email,
-              name: user.name,
-            }),
-            headers: { 'Content-Type': 'application/json' }
-          });
-          return response.ok; // If false, NextAuth denies sign-in
-        } catch (error) {
-          return false;
-        }
-      }
-      return true;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub as string;
-        session.accessToken = token.accessToken;
+        session.user.name = token.name as string;
+        session.user.username = token.username as string; // Pass it to the client
+        session.accessToken = token.accessToken as string;
       }
       return session;
     },
