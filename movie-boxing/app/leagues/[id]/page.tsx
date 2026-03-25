@@ -28,8 +28,10 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
     const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isEditTeamModalOpen, setIsEditTeamModalOpen] = useState(false);
+    const [isUpdateLeagueModalOpen, setIsUpdateLeageModalOpen] = useState(false);
     const [leaguePassword, setLeaguePassword] = useState('');
     const [newTeamName, setNewTeamName] = useState('');
+    const [newLeaguePassword, setNewLeaguePassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [statusMessage, setStatusMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
@@ -113,6 +115,39 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
             setStatusMessage({ type: 'error', text: "Network error. The ref stopped the fight." });
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const handleUpdateLeague = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsDeleting(true);
+        setStatusMessage(null);
+
+        try {
+            const { id } = await params;
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leagues/update?id=${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.accessToken}`
+                },
+                body: JSON.stringify({
+                    LeagueId: id,
+                    JoinPassword: newLeaguePassword == '' ? null : newLeaguePassword // Send null if password is empty
+                })
+            });
+
+            if (res.ok) {
+                setStatusMessage({ type: 'success', text: "Successfully deleted the league..." });
+                router.push('/dashboard');
+            } else {
+                const errorData = await res.json();
+                setStatusMessage({ type: 'error', text: errorData.message || "Failed to delete." });
+            }
+        } catch (err) {
+            setStatusMessage({ type: 'error', text: "Network error. The ref stopped the fight." });
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -355,6 +390,46 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                 </div>
             )}
 
+            {/* EDIT TEAM MODAL */}
+            {isUpdateLeagueModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-md bg-black/60">
+                    <div className="bg-slate-900 border border-slate-800 w-full max-w-3xl rounded-[2.5rem] p-8 shadow-2xl relative overflow-y-auto max-h-[90vh]">
+                        <button onClick={() => setIsUpdateLeageModalOpen(false)} className="absolute top-6 right-6 text-neutral-500 hover:text-white">
+                            <X size={24} />
+                        </button>
+
+                        <h2 className="text-3xl font-black uppercase italic tracking-tighter mb-2 text-red-600">Edit your League</h2>
+
+                        <form onSubmit={handleUpdateLeague} className="space-y-8">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="NEW LEAGUE PASSWORD"
+                                    className="w-full bg-black border border-slate-800 rounded-2xl py-5 px-6 focus:border-red-600 outline-none transition-all font-black italic uppercase tracking-tighter text-xl"
+                                    value={newLeaguePassword}
+                                    onChange={(e) => setNewLeaguePassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+
+                            {statusMessage && (
+                                <p className={`text-xs font-bold uppercase tracking-widest text-center ${statusMessage.type === 'error' ? 'text-red-500' : 'text-green-500'}`}>
+                                    {statusMessage.text}
+                                </p>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-neutral-800 py-5 rounded-2xl font-black uppercase italic tracking-widest transition-all shadow-lg active:scale-[0.98]"
+                            >
+                                {isSubmitting ? "SYNCING ROSTER..." : "SAVE CHANGES"}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             <main className="max-w-6xl mx-auto px-6 py-20">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 mb-16">
                     <div>
@@ -434,6 +509,7 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                     </div>
                     {/* ADMIN SETTINGS */}
                     {leagueInfo.isAdmin && adminSettingsOpen && (
+                        <>
                         <div className="flex items-center gap-3">
                             <Trash2 className="text-red-600" size={20} />
                             <div>
@@ -446,6 +522,19 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                                 </button>
                             </div>
                         </div>
+                        <div className="flex items-center gap-3">
+                            <Trash2 className="text-red-600" size={20} />
+                            <div>
+                                <p className="text-[10px] uppercase font-bold text-neutral-500">Update League</p>
+                                <button
+                                    onClick={() => setIsUpdateLeageModalOpen(true)}
+                                    className="text-xs bg-white text-black px-3 py-1 rounded-xl font-black uppercase italic tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-xl"
+                                >
+                                    Update League
+                                </button>
+                            </div>
+                        </div>
+                        </>
 
                     )}
                 </div>

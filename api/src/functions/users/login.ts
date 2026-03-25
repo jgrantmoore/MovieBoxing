@@ -5,6 +5,10 @@ import * as jwt from 'jsonwebtoken';
 import { poolPromise } from "../../db";
 
 export async function login(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    if (request.method === 'GET') {
+        return { status: 200, body: "Arena is Ready." };
+    }
+
     // Destructure the 'username' field (which could contain an email or a username)
     const { username, password } = await request.json() as any;
 
@@ -52,7 +56,7 @@ export async function login(request: HttpRequest, context: InvocationContext): P
 }
 
 app.http('login', {
-    methods: ['POST'],
+    methods: ['POST', 'GET'],
     route: 'login',
     handler: login
 });

@@ -1,7 +1,8 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { poolPromise, sql } from "../../db";
-import { League } from "../../models/DatabaseModels";
+import { CreateLeagueBody } from "../../models/DatabaseModels";
 import jwt from 'jsonwebtoken';
+import * as bcrypt from 'bcrypt';
 
 
 /**
@@ -27,7 +28,7 @@ export async function updateLeague(request: HttpRequest, context: InvocationCont
         return { status: 401, body: "Invalid token" };
     }
 
-    const body = await request.json() as Partial<Omit<League, 'LeagueId'>>;
+    const body = await request.json() as Partial<Omit<CreateLeagueBody, 'LeagueId'>>;
 
     // Check if at least one field is provided
     if (Object.keys(body).length === 0) {
@@ -61,9 +62,12 @@ export async function updateLeague(request: HttpRequest, context: InvocationCont
             setParts.push('BenchNumber = @BenchNumber');
             inputs.push({ name: 'BenchNumber', type: sql.Int, value: body.BenchNumber });
         }
-        if (body.JoinPasswordHash !== undefined) {
+        if (body.JoinPassword !== undefined) {
+            const saltRounds = 12;
+            const JoinPasswordHash= await bcrypt.hash(body.JoinPassword, saltRounds);
+
             setParts.push('JoinPasswordHash = @JoinPasswordHash');
-            inputs.push({ name: 'JoinPasswordHash', type: sql.NVarChar, value: body.JoinPasswordHash });
+            inputs.push({ name: 'JoinPasswordHash', type: sql.NVarChar, value: JoinPasswordHash });
         }
         if (body.PreferredReleaseDate !== undefined) {
             setParts.push('PreferredReleaseDate = @PreferredReleaseDate');
