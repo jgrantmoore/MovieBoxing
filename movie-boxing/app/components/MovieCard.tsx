@@ -69,7 +69,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
             </div>
             <div>
                 <p className='text-sm text-neutral-400'>
-                    {new Date(releaseDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                    {new Date(String(releaseDate)).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                 </p>
             </div>
 

@@ -5,6 +5,7 @@ import { Cookie, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import CookieBanner from "./components/CookieBanner";
+import { SessionGuard } from "./components/SessionGuard";
 
 
 const geistSans = Geist({
@@ -22,15 +23,19 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+
+
   return (
     <html lang="en" className="bg-slate-950">
       <SessionProvider>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
-        <CookieBanner />
-      </body>
+        <SessionGuard>
+          <body
+            className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+          >
+            {children}
+            <CookieBanner />
+          </body>
+        </SessionGuard>
       </SessionProvider>
     </html>
   );

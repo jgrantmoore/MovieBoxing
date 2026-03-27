@@ -679,7 +679,7 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                             <span className="bg-red-600 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">{leagueStatus}</span>
                             <span className="text-neutral-500 font-mono text-xs uppercase">{leagueInfo?.Teams?.length || 0} Participants</span>
                         </div>
-                        <h1 className="text-6xl md:text-8xl font-black uppercase italic tracking-tighter leading-none break-all">
+                        <h1 className="text-6xl md:text-8xl font-black uppercase italic tracking-tighter leading-none break-words">
                             {leagueInfo?.LeagueName}
                         </h1>
                         {sessionStatus === "authenticated" && leagueInfo.isAdmin && (
