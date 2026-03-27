@@ -33,7 +33,7 @@ export default function Dashboard() {
                 });
 
                 // 2. Fetch top performing movies
-                const movieRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/top-performing-movies`, {
+                const movieRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/top-performing-movies?id=${session.user.id}`, {
                     headers: { 'Authorization': `Bearer ${session.accessToken}` }
                 });
 
@@ -80,17 +80,23 @@ export default function Dashboard() {
                             SYNCING DATA...
                         </div>
                     ) : topMovies.length > 0 ? (
-                        topMovies.map((movie) => (
-                            <MovieCard
-                                key={movie.MovieId}
-                                movieId={movie.MovieId}
-                                title={movie.Title}
-                                posterUrl={movie.PosterUrl}
-                                boxOffice={movie.BoxOffice}
-                                releaseDate={movie.ReleaseDate}
-                                isBench={false}
-                            />
-                        ))
+                        <div className="bg-neutral-900/30 rounded-3xl border border-neutral-800 p-6 md:p-10 shadow-2xl">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                                {
+                                    topMovies.map((movie) => (
+                                        <MovieCard
+                                            key={movie.MovieId}
+                                            movieId={movie.MovieId}
+                                            title={movie.Title}
+                                            posterUrl={movie.PosterUrl}
+                                            boxOffice={movie.BoxOffice}
+                                            releaseDate={movie.InternationalReleaseDate}
+                                            isBench={false}
+                                        />
+                                    ))
+                                }
+                            </div>
+                        </div>
                     ) : (
                         <div className="bg-neutral-900/50 rounded-3xl border-2 border-dashed border-neutral-800 p-20 text-center items-center flex flex-col">
                             <p className="text-neutral-500 mb-6 italic">No top performers found.</p>
@@ -152,7 +158,15 @@ export default function Dashboard() {
                                             const slot = idx + 1;
                                             const pick = team.Picks.find((p: any) => p.OrderDrafted === slot);
                                             return pick ? (
-                                                <MovieCard key={slot} {...pick} isBench={slot > STARTING_SLOTS} />
+                                                <MovieCard
+                                                    key={slot}
+                                                    movieId={pick.MovieId}
+                                                    title={pick.Title}
+                                                    posterUrl={pick.PosterUrl}
+                                                    boxOffice={pick.BoxOffice}
+                                                    releaseDate={pick.ReleaseDate}
+                                                    isBench={slot > STARTING_SLOTS}
+                                                />
                                             ) : (
                                                 <MovieCard key={slot} title="Open Slot" isBench={slot > STARTING_SLOTS} />
                                             );

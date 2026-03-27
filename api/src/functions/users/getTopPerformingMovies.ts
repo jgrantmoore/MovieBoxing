@@ -16,15 +16,18 @@ export async function getTopPerformingMovies(request: HttpRequest, context: Invo
                 SELECT TOP 5
                     m.Title,
                     m.BoxOffice,
-                    m.ReleaseDate,
+                    m.InternationalReleaseDate,
+                    m.PosterUrl,
+                    m.MovieId,
+                    p.OrderDrafted,
                     t.TeamName,
-                    l.Name AS LeagueName
-                FROM Picks p
+                    l.LeagueName
+                FROM TeamMovies p
                 JOIN Movies m ON p.MovieId = m.MovieId
                 JOIN Teams t ON p.TeamId = t.TeamId
                 JOIN Leagues l ON t.LeagueId = l.LeagueId
-                JOIN Users u ON t.UserId = u.UserId
-                WHERE u.UserId = @UserId
+                JOIN Users u ON t.OwnerUserId = u.UserId
+                WHERE u.UserId = @id
                 -- Only pull from leagues that haven't ended yet
                 AND l.EndDate >= GETDATE() 
                 AND l.StartDate <= GETDATE()
