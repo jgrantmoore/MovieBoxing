@@ -10,6 +10,7 @@ import './functions/leagues/searchLeagues';
 import './functions/movies/boxOfficeUpdate';
 import './functions/movies/getMovieInfo';
 import './functions/movies/getMovies';
+import './functions/movies/searchMovies';
 
 import './functions/teams/picks/pickMovie';
 import './functions/teams/createTeam';
@@ -17,6 +18,7 @@ import './functions/teams/deleteTeam';
 import './functions/teams/getUserTeams';
 import './functions/teams/updateTeam';
 import './functions/teams/getUserTeamsAndPicks';
+import './functions/teams/assignMovie';
 
 import './functions/users/getUser';
 import './functions/users/login';

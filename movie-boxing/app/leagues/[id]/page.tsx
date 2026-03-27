@@ -6,8 +6,9 @@ import Navbar from "../../components/Navbar";
 import MovieCard from "../../components/MovieCard";
 import Footer from "../../components/Footer";
 import { useSession } from 'next-auth/react';
-import { Lock, X, Trophy, Calendar, Armchair, Trash2 } from 'lucide-react';
+import { Lock, X, Trophy, Calendar, Armchair, Trash2, Settings, UserStar, Users, UserMinus, Pencil, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useDebounce } from '@/hooks/useDebounce';
 
 export default function LeagueDetails({ params }: { params: Promise<{ id: string }> }) {
     const { data: session, status: sessionStatus } = useSession();
@@ -23,12 +24,23 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
     const userTeamId = currentUserTeam?.TeamId || 0;
     const userTeamName = currentUserTeam?.TeamName || "";
 
+    // Admin Manual Edit States
+    const [isAdminEditModalOpen, setIsAdminEditModalOpen] = useState(false);
+    const [selectedAdminTeam, setSelectedAdminTeam] = useState<any>(null);
+    const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
+    const [adminSearchTerm, setAdminSearchTerm] = useState("");
+    const [adminSearchResults, setAdminSearchResults] = useState([]);
+    const [isSearchingAdmin, setIsSearchingAdmin] = useState(false);
+
+    const debouncedAdminSearch = useDebounce(adminSearchTerm, 500);
+
 
     // Modal & Join States
     const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isEditTeamModalOpen, setIsEditTeamModalOpen] = useState(false);
     const [isUpdateLeagueModalOpen, setIsUpdateLeageModalOpen] = useState(false);
+    const [isDeleteTeamModalOpen, setIsDeleteTeamModalOpen] = useState(false);
     const [leaguePassword, setLeaguePassword] = useState('');
     const [newTeamName, setNewTeamName] = useState('');
     const [newLeaguePassword, setNewLeaguePassword] = useState('');
@@ -46,6 +58,33 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
     useEffect(() => {
         document.title = leagueInfo?.LeagueName != null ? "Movie Boxing - " + leagueInfo.LeagueName : "Movie Boxing - League Info";
     }, [leagueInfo]);
+
+    // for admin search bar
+    useEffect(() => {
+        const performAdminSearch = async () => {
+            if (!debouncedAdminSearch) {
+                setAdminSearchResults([]);
+                return;
+            }
+            setIsSearchingAdmin(true);
+            try {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/movies/search?q=${debouncedAdminSearch}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        StartDate: leagueInfo.StartDate,
+                        EndDate: leagueInfo.EndDate
+                    })
+                });
+                const data = await res.json();
+                setAdminSearchResults(data);
+            } catch (err) {
+                console.error("Admin Search error:", err);
+            } finally {
+                setIsSearchingAdmin(false);
+            }
+        };
+        performAdminSearch();
+    }, [debouncedAdminSearch, leagueInfo]);
 
     useEffect(() => {
         async function fetchData() {
@@ -214,6 +253,64 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
         }
     };
 
+    const handleDeleteTeam = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsDeleting(true);
+        setStatusMessage(null);
+
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/teams/delete?id=${activeEditTeamId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${session?.accessToken}`
+                }
+            });
+
+            if (res.ok) {
+                setStatusMessage({ type: 'success', text: "Roster vacated. Exiting the arena..." });
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                const errorData = await res.json();
+                setStatusMessage({ type: 'error', text: errorData.message || "Failed to delete team." });
+            }
+        } catch (err) {
+            setStatusMessage({ type: 'error', text: "Network error. The ref stopped the fight." });
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleAdminManualAssign = async (movie: any) => {
+        if (!selectedAdminTeam || !selectedSlot) {
+            alert("Please select a team and a slot first!");
+            return;
+        }
+
+        if (!confirm(`Manually add "${movie.title}" to ${selectedAdminTeam.TeamName}'s Slot ${selectedSlot}?`)) return;
+
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/teams/assign-movie`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.accessToken}`
+                },
+                body: JSON.stringify({
+                    TeamId: selectedAdminTeam.TeamId,
+                    TMDBId: movie.id,
+                    SlotNumber: selectedSlot,
+                })
+            });
+
+            if (res.ok) {
+                setStatusMessage({ type: 'success', text: "Roster override successful!" });
+                //setTimeout(() => window.location.reload(), 1000);
+            }
+        } catch (err) {
+            console.error("Manual assign failed", err);
+        }
+    };
+
     // This ensures that every time leagueInfo updates, these numbers update too.
     const STARTING_SLOTS = leagueInfo?.Rules?.Starting || 5;
     const BENCH_SLOTS = leagueInfo?.Rules?.Bench || 3;
@@ -325,7 +422,7 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                         <h2 className="text-3xl font-black uppercase italic tracking-tighter mb-2 text-red-600">Edit your Team</h2>
                         <p className="text-neutral-500 text-sm mb-6 uppercase tracking-widest font-bold">Current Name: {userTeamName}</p>
 
-                        <form onSubmit={handleEditTeam} className="space-y-8">
+                        <form onSubmit={handleEditTeam} className="space-y-8 flex flex-col">
                             <div className="relative">
                                 <input
                                     type="text"
@@ -365,6 +462,9 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                                                     title={pick?.Title || "Open Slot"}
                                                     movieId={pick?.MovieId || 0}
                                                     isBench={slot > STARTING_SLOTS}
+                                                    posterUrl={pick?.PosterUrl}
+                                                    boxOffice={pick?.BoxOffice}
+                                                    releaseDate={pick?.USReleaseDate}
                                                 />
                                             </div>
                                         );
@@ -384,6 +484,17 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                                 className="w-full bg-red-600 hover:bg-red-700 disabled:bg-neutral-800 py-5 rounded-2xl font-black uppercase italic tracking-widest transition-all shadow-lg active:scale-[0.98]"
                             >
                                 {isSubmitting ? "SYNCING ROSTER..." : "SAVE CHANGES"}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsEditTeamModalOpen(false);
+                                    setIsDeleteTeamModalOpen(true);
+                                }}
+                                className="text-[10px] text-center font-black uppercase tracking-[0.2em] text-neutral-600 hover:text-red-500 transition-colors py-2"
+                            >
+                                — Leave League & Delete Team —
                             </button>
                         </form>
                     </div>
@@ -430,6 +541,137 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                 </div>
             )}
 
+            {/* DELETE TEAM MODAL */}
+            {isDeleteTeamModalOpen && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 backdrop-blur-xl bg-black/80">
+                    <div className="bg-slate-900 border-2 border-red-600/20 w-full max-w-md rounded-[2.5rem] p-10 shadow-[0_0_50px_rgba(220,38,38,0.2)] relative">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="bg-red-600/10 p-4 rounded-full mb-6">
+                                <Trash2 size={40} className="text-red-600" />
+                            </div>
+
+                            <h2 className="text-3xl font-black uppercase italic tracking-tighter mb-4">
+                                Delete Your Team?
+                            </h2>
+
+                            <p className="text-neutral-400 text-sm mb-8 leading-relaxed">
+                                You are about to delete <span className="text-white font-bold">{userTeamName}</span>.
+                                This will remove you from the league and forfeit all your drafted movies.
+                                This action is <span className="text-red-500 font-bold underline">permanent</span>.
+                            </p>
+
+                            <div className="flex flex-col w-full gap-3">
+                                <button
+                                    onClick={handleDeleteTeam}
+                                    disabled={isDeleting}
+                                    className="w-full bg-red-600 hover:bg-red-700 disabled:bg-neutral-800 py-4 rounded-2xl font-black uppercase italic tracking-widest transition-all"
+                                >
+                                    {isDeleting ? "DELETING..." : "YES, DELETE TEAM"}
+                                </button>
+
+                                <button
+                                    onClick={() => setIsDeleteTeamModalOpen(false)}
+                                    disabled={isDeleting}
+                                    className="w-full bg-neutral-800 hover:bg-neutral-700 py-4 rounded-2xl font-black uppercase italic tracking-widest transition-all"
+                                >
+                                    WAIT, GO BACK
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ADMIN EDIT MODAL */}
+            {isAdminEditModalOpen && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 backdrop-blur-md bg-black/80">
+                    <div className="bg-slate-900 border border-red-600/30 w-full max-w-5xl rounded-[3rem] p-10 shadow-2xl relative overflow-y-auto max-h-[90vh]">
+                        <button onClick={() => setIsAdminEditModalOpen(false)} className="absolute top-8 right-8 text-neutral-500 hover:text-white"><X size={32} /></button>
+
+                        <h2 className="text-4xl font-black uppercase italic tracking-tighter mb-8 text-red-600">Admin Roster Control</h2>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                            {/* 1. SELECT TEAM & SLOT */}
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2 block">1. Select Target Team</label>
+                                    <select
+                                        onChange={(e) => setSelectedAdminTeam(teams.find(t => t.TeamId === parseInt(e.target.value)))}
+                                        className="w-full bg-black border border-neutral-800 p-4 rounded-2xl font-black uppercase italic outline-none focus:border-red-600"
+                                    >
+                                        <option value="">Choose a Team...</option>
+                                        {teams.map(t => <option key={t.TeamId} value={t.TeamId}>{t.TeamName}</option>)}
+                                    </select>
+                                </div>
+
+                                {selectedAdminTeam && (
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2 block">2. Select Slot to Overwrite</label>
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {Array.from({ length: TOTAL_SLOTS }).map((_, i) => (
+                                                <button
+                                                    key={i}
+                                                    onClick={() => {
+                                                        setSelectedSlot(i + 1);
+                                                        setStatusMessage(null);
+                                                    }}
+                                                    className={`p-3 rounded-xl border font-black text-xs ${selectedSlot === i + 1 ? 'bg-red-600 border-red-600' : 'bg-neutral-800 border-neutral-700'}`}
+                                                >
+                                                    S{i + 1}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 2. SEARCH MOVIES */}
+                            <div className="lg:col-span-2 space-y-4">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 block">3. Search & Assign Movie</label>
+                                <div className="relative">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={20} />
+                                    <input
+                                        type="text"
+                                        placeholder="SEARCH TMDB DATABASE..."
+                                        className="w-full bg-black border border-neutral-800 rounded-2xl py-5 pl-12 pr-4 focus:border-red-600 outline-none font-black italic uppercase"
+                                        value={adminSearchTerm}
+                                        onChange={(e) => setAdminSearchTerm(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {adminSearchResults.map((movie: any) => (
+                                        <button
+                                            key={movie.id}
+                                            onClick={() => handleAdminManualAssign(movie)}
+                                            className="flex items-center gap-4 bg-neutral-950 p-3 h-fit rounded-2xl border border-neutral-800 hover:border-red-600 transition-all text-left group"
+                                        >
+                                            <div className="h-16 w-12 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0">
+                                                {movie.poster_path && <img src={`https://image.tmdb.org/t/p/w200${movie.poster_path}`} className="h-full w-full object-cover" />}
+                                            </div>
+                                            <div>
+                                                <h4 className="font-black uppercase italic text-sm leading-tight group-hover:text-red-500">{movie.title}</h4>
+                                                <p className="text-[9px] font-mono text-neutral-400">{movie.release_date}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                                    {adminSearchResults.length === 0 && (
+                                        <p className="text-center text-neutral-500 font-mono text-sm mt-10">No results found. Try a different search?</p>
+                                    )}
+                                </div>
+                                <div>
+                                    {statusMessage && (
+                                        <p className={`text-xs font-bold uppercase tracking-widest text-center ${statusMessage.type === 'error' ? 'text-red-500' : 'text-green-500'}`}>
+                                            {statusMessage.text}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <main className="max-w-6xl mx-auto px-6 py-20">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 mb-16">
                     <div>
@@ -449,12 +691,12 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                                     {adminSettingsOpen ? 'Hide Admin Settings' : 'Show Admin Settings'}
                                 </button>
                                 {!(leagueInfo.HasDrafted) && !(leagueInfo.IsDrafting) && (
-                                    <button
-                                        onClick={() => console.log('hello')}
+                                    <Link
+                                        href={`/leagues/${leagueInfo.LeagueId}/draft`}
                                         className="text-md bg-white text-black px-5 py-2 rounded-2xl mt-3 font-black uppercase italic tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-xl"
                                     >
                                         Start Draft
-                                    </button>
+                                    </Link>
                                 )}
                             </div>
                         )}
@@ -507,33 +749,71 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                             <p className="font-black italic">{leagueInfo?.isPrivate ? 'Private' : 'Public'}</p>
                         </div>
                     </div>
+                    <div className="flex items-center gap-3">
+                        <Users className="text-red-600" size={20} />
+                        <div>
+                            <p className="text-[10px] uppercase font-bold text-neutral-500">Current Teams</p>
+                            <p className="font-black italic">{leagueInfo?.Teams?.length || 0} Participants</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <UserStar className="text-red-600" size={20} />
+                        <div>
+                            <p className="text-[10px] uppercase font-bold text-neutral-500">Admin User</p>
+                            <p className="font-black italic">{leagueInfo?.AdminName}</p>
+                        </div>
+                    </div>
                     {/* ADMIN SETTINGS */}
                     {leagueInfo.isAdmin && adminSettingsOpen && (
                         <>
-                        <div className="flex items-center gap-3">
-                            <Trash2 className="text-red-600" size={20} />
-                            <div>
-                                <p className="text-[10px] uppercase font-bold text-neutral-500">Delete League</p>
-                                <button
-                                    onClick={() => setIsDeleteModalOpen(true)}
-                                    className="text-xs bg-white text-black px-3 py-1 rounded-xl font-black uppercase italic tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-xl"
-                                >
-                                    Delete League
-                                </button>
+                            <div className="flex items-center gap-3">
+                                <Trash2 className="text-red-600" size={20} />
+                                <div>
+                                    <p className="text-[10px] uppercase font-bold text-neutral-500">Delete League</p>
+                                    <button
+                                        onClick={() => setIsDeleteModalOpen(true)}
+                                        className="text-xs bg-white text-black px-3 py-1 rounded-xl font-black uppercase italic tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-xl"
+                                    >
+                                        Delete League
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <Trash2 className="text-red-600" size={20} />
-                            <div>
-                                <p className="text-[10px] uppercase font-bold text-neutral-500">Update League</p>
-                                <button
-                                    onClick={() => setIsUpdateLeageModalOpen(true)}
-                                    className="text-xs bg-white text-black px-3 py-1 rounded-xl font-black uppercase italic tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-xl"
-                                >
-                                    Update League
-                                </button>
+                            <div className="flex items-center gap-3">
+                                <Settings className="text-red-600" size={20} />
+                                <div>
+                                    <p className="text-[10px] uppercase font-bold text-neutral-500">League Settings</p>
+                                    <button
+                                        onClick={() => setIsUpdateLeageModalOpen(true)}
+                                        className="text-xs bg-white text-black px-3 py-1 rounded-xl font-black uppercase italic tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-xl"
+                                    >
+                                        Edit League
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                            <div className="flex items-center gap-3">
+                                <UserMinus className="text-red-600" size={20} />
+                                <div>
+                                    <p className="text-[10px] uppercase font-bold text-neutral-500">Remove Teams</p>
+                                    <button
+                                        onClick={() => setIsUpdateLeageModalOpen(true)}
+                                        className="text-xs bg-white text-black px-3 py-1 rounded-xl font-black uppercase italic tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-xl"
+                                    >
+                                        Remove Teams
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <Pencil className="text-red-600" size={20} />
+                                <div>
+                                    <p className="text-[10px] uppercase font-bold text-neutral-500">Edit Teams</p>
+                                    <button
+                                        onClick={() => setIsAdminEditModalOpen(true)}
+                                        className="text-xs bg-white text-black px-3 py-1 rounded-xl font-black uppercase italic tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-xl"
+                                    >
+                                        Edit Teams
+                                    </button>
+                                </div>
+                            </div>
                         </>
 
                     )}
@@ -598,6 +878,9 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                                                 title={pick?.Title || "Open Slot"}
                                                 movieId={pick?.MovieId || 0}
                                                 isBench={slot > STARTING_SLOTS}
+                                                posterUrl={pick?.PosterUrl}
+                                                boxOffice={pick?.BoxOffice}
+                                                releaseDate={pick?.ReleaseDate}
                                             />
                                         );
                                     })}

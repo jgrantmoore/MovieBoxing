@@ -31,16 +31,16 @@ export async function verifyTeamOwnership(teamId: number, ownerUserId: number): 
             JOIN Leagues l ON t.LeagueId = l.LeagueId
             WHERE t.TeamId = @TeamId
         `);
-    
+
     if (result.recordset.length === 0) {
         throw new Error("Team not found");
     }
-    
+
     const record = result.recordset[0];
     if (record.OwnerUserId !== ownerUserId) {
         throw new Error("Forbidden: You do not own this team");
     }
-    
+
     return {
         leagueId: record.LeagueId,
         startingNumber: record.StartingNumber,
@@ -61,7 +61,7 @@ export async function checkMoviePickedInLeague(leagueId: number, movieId: number
             SELECT MovieId FROM TeamMovies 
             WHERE LeagueId = @LeagueId AND MovieId = @MovieId
         `);
-    
+
     if (result.recordset.length > 0) {
         throw new Error("Movie is already picked in this league");
     }
@@ -75,7 +75,7 @@ export async function getTeamPickCount(teamId: number): Promise<number> {
     const result = await pool.request()
         .input('TeamId', sql.Int, teamId)
         .query('SELECT COUNT(*) AS PickCount FROM TeamMovies WHERE TeamId = @TeamId');
-    
+
     return result.recordset[0].PickCount;
 }
 
@@ -104,7 +104,7 @@ export async function getMovieIdByTMDBId(tmdbId: number): Promise<number> {
     const result = await pool.request()
         .input('TMDBId', sql.Int, tmdbId)
         .query('SELECT MovieId FROM Movies WHERE TMDBId = @TMDBId');
-            
+
     if (result.recordset.length === 0) {
         throw new Error("Movie not found");
     }
@@ -114,36 +114,92 @@ export async function getMovieIdByTMDBId(tmdbId: number): Promise<number> {
 export async function createMovieFromTMDBId(tmdbId: number): Promise<Movie> {
     const pool = await poolPromise;
     try {
-        const options = { method: 'GET', headers: { accept: 'application/json', Authorization: process.env.TMDB_API_KEY } }; 
-        const response = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}`, options);
-        const release_date_response = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/release_dates`, options);
-        const movieData = await response.json();
-        const releaseData = await release_date_response.json();
+        const options = { 
+            method: 'GET', 
+            headers: { 
+                accept: 'application/json', 
+                Authorization: process.env.TMDB_API_KEY
+            } 
+        };
         
-        // Extract US and International release dates
-        const usRelease = releaseData.results.find((r: any) => r.iso_3166_1 === 'US');
-        const internationalRelease = releaseData.results.find((r: any) => r.iso_3166_1 !== 'US');
+        const [movieRes, releaseRes] = await Promise.all([
+            fetch(`https://api.themoviedb.org/3/movie/${tmdbId}`, options),
+            fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/release_dates`, options)
+        ]);
 
-        // 3. Map to your schema exactly
+        const movieData = await movieRes.json();
+        const releaseData = await releaseRes.json();
+
+
+        // 1. Flatten and Sort all release dates
+        const allReleases = (releaseData.results || []).flatMap((r: any) =>
+            r.release_dates.map((rd: any) => rd.release_date)
+        );
+
+        const sortedReleases = allReleases.sort((a: string, b: string) =>
+            new Date(a).getTime() - new Date(b).getTime()
+        );
+
+        // 2. Logic for specific dates with absolute fallbacks to prevent NULL
+        const usEntry = releaseData.results?.find((r: any) => r.iso_3166_1 === 'US');
+        let usReleaseDate: string | undefined;
+        if (usEntry) {
+            // Look for Type 3 (Theatrical). If not found, take the first available.
+            const theatrical = usEntry.release_dates.find((rd: { type: number; release_date: string }) => rd.type === 3);
+            usReleaseDate = theatrical ? theatrical.release_date : usEntry.release_dates[0]?.release_date;
+        }
+        // Final fallback chain: Specific US Date -> Earliest Global Date -> Movie's base release_date -> Today
+        usReleaseDate = usReleaseDate
+            || sortedReleases[0]
+            || movieData.release_date
+            || new Date().toISOString();
+
+        const internationalReleaseDate = sortedReleases[0]
+            || movieData.release_date
+            || new Date().toISOString();
+
+        // 3. Map to your schema - UPDATED SQL QUERY
         const insertResult = await pool.request()
             .input('TMDBId', sql.Int, tmdbId)
             .input('Title', sql.NVarChar, movieData.title)
-            .input('Description', sql.NVarChar, movieData.overview)
-            .input('USReleaseDate', sql.Date, usRelease ? usRelease.release_dates[0].release_date : null)
-            .input('InternationalReleaseDate', sql.Date, internationalRelease ? internationalRelease.release_dates[0].release_date : null)
-            .input('ImageUrl', sql.NVarChar, movieData.poster_path)
-            .input('Budget', sql.Decimal, movieData.budget)
-            .input('BoxOffice', sql.Decimal, movieData.revenue)
+            .input('Description', sql.NVarChar, movieData.overview || "")
+            .input('USReleaseDate', sql.Date, usReleaseDate)
+            .input('InternationalReleaseDate', sql.Date, internationalReleaseDate)
+            .input('PosterUrl', sql.NVarChar, movieData.poster_path)
+            .input('Budget', sql.Decimal(18, 2), movieData.budget || 0)
+            .input('BoxOffice', sql.Decimal(18, 2), movieData.revenue || 0)
             .input('Status', sql.NVarChar, movieData.status)
             .query(`
-                INSERT INTO Movies (TMDBId, Title, USReleaseDate, ImageUrl, Budget, BoxOffice, Status)
+                INSERT INTO Movies (
+                    TMDBId, 
+                    Title, 
+                    Description, 
+                    USReleaseDate, 
+                    InternationalReleaseDate, 
+                    PosterUrl, 
+                    Budget, 
+                    BoxOffice, 
+                    Status,
+                    DataRecent
+                )
                 OUTPUT INSERTED.*
-                VALUES (@TMDBId, @Title, @USReleaseDate, @ImageUrl, @Budget, @BoxOffice, @Status)
+                VALUES (
+                    @TMDBId, 
+                    @Title, 
+                    @Description, 
+                    @USReleaseDate, 
+                    @InternationalReleaseDate, 
+                    @PosterUrl, 
+                    @Budget, 
+                    @BoxOffice, 
+                    @Status,
+                    1
+                )
             `);
 
-        return insertResult.recordset[0]; // This now contains the newly created MovieId
+        return insertResult.recordset[0];
 
     } catch (err) {
-        throw new Error("Error fetching/saving movie");
+        throw new Error("Error fetching/saving movie: " + err);
     }
 }

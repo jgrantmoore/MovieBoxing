@@ -13,23 +13,40 @@ export async function boxOfficeUpdate(myTimer: Timer, context: InvocationContext
     
     for (const movie of movies) {
         try {
-            const options = { method: 'GET', headers: { accept: 'application/json', Authorization: process.env.TMDB_API_KEY } }; 
-            const response = await fetch(`https://api.themoviedb.org/3/movie/${movie.TMDBId}`, options);
+            const options = { method: 'GET', headers: { accept: 'application/json', Authorization: process.env.TMDB_API_KEY } };
+            // Fetch movie details with release_dates
+            const response = await fetch(`https://api.themoviedb.org/3/movie/${movie.TMDBId}?append_to_response=release_dates`, options);
             const movieData = await response.json();
-            
-            // Only update if the box office value has changed or is missing (to avoid unnecessary DB writes)
-            if (movieData.revenue !== movie.BoxOffice) {
-                await pool.request()
+
+            // --- US Release Date (Type 3 logic) ---
+            let usReleaseDate: string | undefined;
+            const usEntry = movieData.release_dates?.results?.find((r: any) => r.iso_3166_1 === 'US');
+            if (usEntry) {
+                const theatrical = usEntry.release_dates.find((rd: { type: number; release_date: string }) => rd.type === 3);
+                usReleaseDate = theatrical ? theatrical.release_date : usEntry.release_dates[0]?.release_date;
+            }
+            usReleaseDate = usReleaseDate || movieData.release_date || new Date().toISOString();
+
+            // Only update if the box office or US release date has changed
+            const shouldUpdateBoxOffice = movieData.revenue !== movie.BoxOffice;
+            const shouldUpdateReleaseDate = usReleaseDate && usReleaseDate !== movie.DomesticReleaseDate;
+
+            if (shouldUpdateBoxOffice || shouldUpdateReleaseDate) {
+                const req = pool.request()
                     .input('TMDBId', sql.Int, movie.TMDBId)
-                    .input('BoxOffice', sql.Decimal, movieData.revenue)
-                    .query(`
-                        UPDATE Movies SET BoxOffice = @BoxOffice WHERE TMDBId = @TMDBId
-                    `);
+                    .input('BoxOffice', sql.Decimal, movieData.revenue);
+                if (shouldUpdateReleaseDate) {
+                    req.input('DomesticReleaseDate', sql.Date, usReleaseDate);
+                }
+                await req.query(`
+                    UPDATE Movies
+                    SET BoxOffice = @BoxOffice${shouldUpdateReleaseDate ? ', DomesticReleaseDate = @DomesticReleaseDate' : ''}
+                    WHERE TMDBId = @TMDBId
+                `);
             }
         } catch (err) {
             context.log(`Error updating movie ${movie.TMDBId}: ${err}`);
         }
-        
         // Add a 300ms delay between requests to respect TMDB rate limits (40 per 10s)
         await new Promise(resolve => setTimeout(resolve, 300));
     }

@@ -37,11 +37,12 @@ export async function getLeague(request: HttpRequest, context: InvocationContext
                 l.LeagueName,
                 l.StartDate,
                 l.EndDate,
-                l.StartingNumber,   -- Usually 5
-                l.BenchNumber,      -- Usually 3
+                l.StartingNumber,   
+                l.BenchNumber,      
                 l.FreeAgentsAllowed,
                 l.JoinPasswordHash,
                 l.AdminUserId,
+                admin_u.DisplayName AS AdminName, -- Added: Admin Display Name
                 l.HasDrafted,
                 l.IsDrafting,
                 
@@ -56,9 +57,13 @@ export async function getLeague(request: HttpRequest, context: InvocationContext
                 m.Title AS MovieTitle,
                 m.BoxOffice,
                 m.PosterUrl,
-                p.OrderDrafted,    -- Used to determine Start vs Bench
+                m.InternationalReleaseDate,
+                p.OrderDrafted,    
                 p.DateAdded
             FROM Leagues l
+            -- 1. Join for the League Admin (the creator)
+            JOIN Users admin_u ON l.AdminUserId = admin_u.UserId 
+            -- 2. Join for the Team Owners (the participants)
             JOIN Teams t ON l.LeagueId = t.LeagueId
             JOIN Users u ON t.OwnerUserId = u.UserId
             LEFT JOIN TeamMovies p ON t.TeamId = p.TeamId
@@ -84,6 +89,7 @@ export async function getLeague(request: HttpRequest, context: InvocationContext
             isPrivate: isPrivate,
             Joined: joined,
             isAdmin: isAdmin,
+            AdminName: rows[0].AdminName,
             Rules: {
                 Starting: rows[0].StartingNumber,
                 Bench: rows[0].BenchNumber,
@@ -111,7 +117,8 @@ export async function getLeague(request: HttpRequest, context: InvocationContext
                     Title: row.MovieTitle,
                     BoxOffice: row.BoxOffice,
                     PosterUrl: row.PosterUrl,
-                    OrderDrafted: row.OrderDrafted
+                    OrderDrafted: row.OrderDrafted,
+                    ReleaseDate: row.InternationalReleaseDate
                 });
             }
         });

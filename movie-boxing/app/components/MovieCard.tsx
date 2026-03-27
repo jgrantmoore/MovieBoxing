@@ -48,7 +48,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
             <div>
                 <div className="w-full aspect-[2/3] bg-neutral-950 rounded-2xl overflow-hidden flex items-center justify-center relative border border-neutral-800/50">
                     {posterUrl ? (
-                        <img src={posterUrl} alt={title} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                        <img src={`https://image.tmdb.org/t/p/w400${posterUrl}`} alt={title} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                     ) : (
                         <div className="text-[10px] uppercase font-black text-neutral-600 tracking-widest text-center px-4 leading-tight">
                             {isEmpty ? "Open Roster Spot" : "Poster Pending"}
@@ -66,6 +66,11 @@ const MovieCard: React.FC<MovieCardProps> = ({
                         {title}
                     </p>
                 </div>
+            </div>
+            <div>
+                <p className='text-sm text-neutral-400'>
+                    {new Date(releaseDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                </p>
             </div>
 
             <div className="mt-4 pt-3 border-t border-neutral-800/50 flex items-center justify-between">

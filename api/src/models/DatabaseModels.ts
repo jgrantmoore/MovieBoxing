@@ -58,3 +58,8 @@ export interface PickMovieBody {
     TeamId: number;
     tmdbId: number;
 }
+
+export interface SearchMoviesBody {
+    StartDate: string;
+    EndDate: string;
+}
