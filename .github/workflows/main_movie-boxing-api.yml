@@ -45,15 +45,15 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-app
-          path: . # Download to current root
+          path: . 
 
       - name: 'Run Azure Functions Action'
         uses: Azure/functions-action@v1
         id: fa
         with:
-          # 1. Update this to your new Flex App Name
           app-name: 'movie-boxing-api-flex'
-          # 2. Use the new secret you'll create in GitHub
           publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE_FLEX }}
-          # 3. Since we downloaded the artifact to '.', the package is the current dir
           package: '.'
+          # THESE TWO LINES ARE CRITICAL FOR FLEX CONSUMPTION:
+          scm-do-build-during-deployment: true
+          enable-oryx-build: true
