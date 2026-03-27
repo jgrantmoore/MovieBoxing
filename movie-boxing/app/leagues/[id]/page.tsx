@@ -5,8 +5,9 @@ import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import MovieCard from "../../components/MovieCard";
 import Footer from "../../components/Footer";
+import ReleaseOrder from "../../components/ReleaseOrder";
 import { useSession } from 'next-auth/react';
-import { Lock, X, Trophy, Calendar, Armchair, Trash2, Settings, UserStar, Users, UserMinus, Pencil, Search } from 'lucide-react';
+import { Lock, X, Trophy, Calendar, Armchair, Trash2, Settings, UserStar, Users, UserMinus, Pencil, Search, LayoutGrid, ListOrdered } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -18,6 +19,7 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
     const [openBench, setOpenBench] = useState<Set<string>>(new Set());
     const [adminSettingsOpen, setAdminSettingsOpen] = useState(false);
     const [activeEditTeamId, setActiveEditTeamId] = useState<number>(0);
+    const [activeTab, setActiveTab] = useState<'teams' | 'release'>('teams');
     const router = useRouter();
 
     const currentUserTeam = teams.find(t => t.OwnerUserId === session?.user?.id);
@@ -819,76 +821,103 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                     )}
                 </div>
 
-                {/* Rosters Section */}
-                <div className="space-y-12">
-                    {teams.map((team) => {
-                        const totalBoxOffice = (team.Picks || []).reduce((sum: number, pick: any) => {
-                            return (pick.OrderDrafted <= STARTING_SLOTS) ? sum + (pick.BoxOffice || 0) : sum;
-                        }, 0);
-
-                        return (
-                            <div key={team.TeamId} className="bg-neutral-900/40 rounded-[2.5rem] border border-neutral-800 p-8 shadow-2xl">
-                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6 border-b border-neutral-800 pb-8">
-                                    <div>
-                                        <h2 className="text-4xl font-black uppercase italic text-red-600 tracking-tighter break-all">{team.TeamName}</h2>
-                                        <div className='flex flex-row items-center gap-2'>
-                                            <Link href={"/profile/" + team.OwnerUserId} className="text-md text-neutral-500 font-mono font-bold mt-1">Manager: {team.Owner}</Link>
-
-                                            {team.OwnerUserId == session?.user?.id && (
-                                                <button
-                                                    className="text-xs bg-white text-black px-3 py-1 rounded-xl font-black uppercase italic tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-xl"
-                                                    onClick={() => {
-                                                        setActiveEditTeamId(team.TeamId);
-                                                        setNewTeamName(team.TeamName);
-                                                        setIsEditTeamModalOpen(true);
-                                                    }}
-                                                >
-                                                    Edit Team?
-                                                </button>
-                                            )}
-
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-8">
-                                        <div className="text-right">
-                                            <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-widest">Current Score</p>
-                                            <p className="text-3xl font-mono font-black">${(totalBoxOffice / 1000000).toFixed(1)}M</p>
-                                        </div>
-                                        <button
-                                            onClick={() => {
-                                                const next = new Set(openBench);
-                                                next.has(team.TeamName) ? next.delete(team.TeamName) : next.add(team.TeamName);
-                                                setOpenBench(next);
-                                            }}
-                                            className="bg-neutral-800 px-4 py-2 rounded-xl text-xs font-bold uppercase"
-                                        >
-                                            {openBench.has(team.TeamName) ? 'Hide Bench' : 'Show Bench'}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                                    {Array.from({ length: openBench.has(team.TeamName) ? TOTAL_SLOTS : STARTING_SLOTS }).map((_, idx) => {
-                                        const slot = idx + 1;
-                                        const pick = team.Picks?.find((p: any) => p.OrderDrafted === slot);
-                                        return (
-                                            <MovieCard
-                                                key={slot}
-                                                {...pick}
-                                                title={pick?.Title || "Open Slot"}
-                                                movieId={pick?.MovieId || 0}
-                                                isBench={slot > STARTING_SLOTS}
-                                                posterUrl={pick?.PosterUrl}
-                                                boxOffice={pick?.BoxOffice}
-                                                releaseDate={pick?.ReleaseDate}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        );
-                    })}
+                {/* --- NEW TAB BAR SECTION --- */}
+                <div className="flex items-center gap-2 mb-8 bg-black/40 p-1.5 rounded-[2rem] w-fit border border-slate-900">
+                    <button
+                        onClick={() => setActiveTab('teams')}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-[1.5rem] font-black uppercase italic tracking-widest text-xs transition-all ${activeTab === 'teams' ? 'bg-red-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
+                            }`}
+                    >
+                        <LayoutGrid size={16} />
+                        Teams
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('release')}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-[1.5rem] font-black uppercase italic tracking-widest text-xs transition-all ${activeTab === 'release' ? 'bg-red-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
+                            }`}
+                    >
+                        <ListOrdered size={16} />
+                        Release Schedule
+                    </button>
                 </div>
+
+                {/* Rosters Section */}
+                {activeTab === 'teams' && (
+                    <div className="space-y-12">
+                        {teams.map((team) => {
+                            const totalBoxOffice = (team.Picks || []).reduce((sum: number, pick: any) => {
+                                return (pick.OrderDrafted <= STARTING_SLOTS) ? sum + (pick.BoxOffice || 0) : sum;
+                            }, 0);
+
+                            return (
+                                <div key={team.TeamId} className="bg-neutral-900/40 rounded-[2.5rem] border border-neutral-800 p-8 shadow-2xl">
+                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6 border-b border-neutral-800 pb-8">
+                                        <div>
+                                            <h2 className="text-4xl font-black uppercase italic text-red-600 tracking-tighter break-all">{team.TeamName}</h2>
+                                            <div className='flex flex-row items-center gap-2'>
+                                                <Link href={"/profile/" + team.OwnerUserId} className="text-md text-neutral-500 font-mono font-bold mt-1">Manager: {team.Owner}</Link>
+
+                                                {team.OwnerUserId == session?.user?.id && (
+                                                    <button
+                                                        className="text-xs bg-white text-black px-3 py-1 rounded-xl font-black uppercase italic tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-xl"
+                                                        onClick={() => {
+                                                            setActiveEditTeamId(team.TeamId);
+                                                            setNewTeamName(team.TeamName);
+                                                            setIsEditTeamModalOpen(true);
+                                                        }}
+                                                    >
+                                                        Edit Team?
+                                                    </button>
+                                                )}
+
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-8">
+                                            <div className="text-right">
+                                                <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-widest">Current Score</p>
+                                                <p className="text-3xl font-mono font-black">${(totalBoxOffice / 1000000).toFixed(1)}M</p>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    const next = new Set(openBench);
+                                                    next.has(team.TeamName) ? next.delete(team.TeamName) : next.add(team.TeamName);
+                                                    setOpenBench(next);
+                                                }}
+                                                className="bg-neutral-800 px-4 py-2 rounded-xl text-xs font-bold uppercase"
+                                            >
+                                                {openBench.has(team.TeamName) ? 'Hide Bench' : 'Show Bench'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                                        {Array.from({ length: openBench.has(team.TeamName) ? TOTAL_SLOTS : STARTING_SLOTS }).map((_, idx) => {
+                                            const slot = idx + 1;
+                                            const pick = team.Picks?.find((p: any) => p.OrderDrafted === slot);
+                                            return (
+                                                <MovieCard
+                                                    key={slot}
+                                                    {...pick}
+                                                    title={pick?.Title || "Open Slot"}
+                                                    movieId={pick?.MovieId || 0}
+                                                    isBench={slot > STARTING_SLOTS}
+                                                    posterUrl={pick?.PosterUrl}
+                                                    boxOffice={pick?.BoxOffice}
+                                                    releaseDate={pick?.ReleaseDate}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Release Schedule Section */}
+                {/* {activeTab === 'release' && (
+                    <ReleaseOrder teams={teams} />
+                )} */}
             </main>
             <Footer />
         </div>
