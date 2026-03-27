@@ -25,6 +25,7 @@ import './functions/users/login';
 import './functions/users/register';
 import './functions/users/updateUser';
 import './functions/users/getTopPerformingMovies';
+import './functions/users/getUserStats';
 
 import './functions/warmer'
 

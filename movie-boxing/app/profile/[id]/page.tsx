@@ -11,14 +11,15 @@ export default function Profile({ params }: { params: Promise<{ id: string }> })
     const { data: session, status: sessionStatus } = useSession();
     const [userInfo, setUserInfo] = useState<any>(null);
     const isOwner = session?.user?.name === id;
+    const [stats, setStats] = useState<any[]>([]);
 
     // Placeholder data - replace with your fetch results later
-    const stats = [
-        { label: "Total Earnings", value: "$1.4B", icon: <Zap size={20} className="text-yellow-400" /> },
-        { label: "Leagues Won", value: "3", icon: <Trophy size={20} className="text-red-600" /> },
-        { label: "Total Trades", value: "88", icon: <Scale size={20} className="text-blue-500" /> },
-        { label: "Movies Picked", value: "42", icon: <Film size={20} className="text-purple-500" /> },
-    ];
+    // const stats = [
+    //     { label: "Total Earnings", value: "$1.4B", icon: <Zap size={20} className="text-yellow-400" /> },
+    //     { label: "Leagues Won", value: "3", icon: <Trophy size={20} className="text-red-600" /> },
+    //     { label: "Total Trades", value: "88", icon: <Scale size={20} className="text-blue-500" /> },
+    //     { label: "Movies Picked", value: "42", icon: <Film size={20} className="text-purple-500" /> },
+    // ];
 
     useEffect(() => {
         if (userInfo != null) {
@@ -36,13 +37,19 @@ export default function Profile({ params }: { params: Promise<{ id: string }> })
             setLoading(true);
             try {
                 // Use the 'id' you already extracted at the top of the component
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user?id=${id}`, {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/stats?id=${id}`, {
                     headers: { 'Authorization': `Bearer ${session?.accessToken}` }
                 });
 
                 if (res.ok) {
                     const data = await res.json();
                     setUserInfo(data);
+                    setStats([
+                        { label: "Total Earnings", value: `$${data.TotalEarnings.toLocaleString()}`, icon: <Zap size={20} className="text-yellow-400" /> },
+                        { label: "Leagues Won", value: data.LeaguesWon, icon: <Trophy size={20} className="text-red-600" /> },
+                        { label: "Total Trades", value: "xx", icon: <Scale size={20} className="text-blue-500" /> }, // Placeholder
+                        { label: "Movies Picked", value: data.MovieCount, icon: <Film size={20} className="text-purple-500" /> },
+                    ]);
                 }
             } catch (err) {
                 console.error("Fetch error:", err);
