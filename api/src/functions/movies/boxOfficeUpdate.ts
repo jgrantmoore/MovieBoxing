@@ -55,6 +55,6 @@ export async function boxOfficeUpdate(myTimer: Timer, context: InvocationContext
 }
 
 app.timer('boxOfficeUpdate', {
-    schedule: '0 0 2 * * *',
+    schedule: '0 0 8 * * *',
     handler: boxOfficeUpdate
 });

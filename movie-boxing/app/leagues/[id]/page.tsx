@@ -19,7 +19,7 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
     const [openBench, setOpenBench] = useState<Set<string>>(new Set());
     const [adminSettingsOpen, setAdminSettingsOpen] = useState(false);
     const [activeEditTeamId, setActiveEditTeamId] = useState<number>(0);
-    const [activeTab, setActiveTab] = useState<'teams' | 'release'>('teams');
+    const [activeTab, setActiveTab] = useState<'teams' | 'release' | 'leaderboard'>('teams');
     const router = useRouter();
 
     const currentUserTeam = teams.find(t => t.OwnerUserId === session?.user?.id);
@@ -839,6 +839,14 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                         <ListOrdered size={16} />
                         Release Schedule
                     </button>
+                    <button
+                        onClick={() => setActiveTab('leaderboard')}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-[1.5rem] font-black uppercase italic tracking-widest text-xs transition-all ${activeTab === 'leaderboard' ? 'bg-red-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
+                            }`}
+                    >
+                        <ListOrdered size={16} />
+                        Leaderboard
+                    </button>
                 </div>
 
                 {/* Rosters Section */}
@@ -918,6 +926,10 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                 {/* {activeTab === 'release' && (
                     <ReleaseOrder teams={teams} />
                 )} */}
+
+                {activeTab === 'leaderboard' && (
+                    <div>Leaderboard Coming Soon...</div>
+                )}
             </main>
             <Footer />
         </div>

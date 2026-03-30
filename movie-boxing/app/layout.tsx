@@ -28,14 +28,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-slate-950">
       <SessionProvider>
-        <SessionGuard>
           <body
             className={`${geistSans.variable} ${geistMono.variable} antialiased`}
           >
             {children}
             <CookieBanner />
           </body>
-        </SessionGuard>
       </SessionProvider>
     </html>
   );
