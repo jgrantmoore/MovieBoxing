@@ -141,6 +141,7 @@ export async function createMovieFromTMDBId(tmdbId: number): Promise<Movie> {
         );
 
         // 2. Logic for specific dates with absolute fallbacks to prevent NULL
+        // US Release Date
         const usEntry = releaseData.results?.find((r: any) => r.iso_3166_1 === 'US');
         let usReleaseDate: string | undefined;
         if (usEntry) {
@@ -148,13 +149,40 @@ export async function createMovieFromTMDBId(tmdbId: number): Promise<Movie> {
             const theatrical = usEntry.release_dates.find((rd: { type: number; release_date: string }) => rd.type === 3);
             usReleaseDate = theatrical ? theatrical.release_date : usEntry.release_dates[0]?.release_date;
         }
-        // Final fallback chain: Specific US Date -> Earliest Global Date -> Movie's base release_date -> Today
         usReleaseDate = usReleaseDate
             || sortedReleases[0]
             || movieData.release_date
             || new Date().toISOString();
 
-        const internationalReleaseDate = sortedReleases[0]
+        // International Release Date (all countries, type 2 or 3, including US)
+        let internationalReleaseDate: string | undefined;
+        const allType2or3Dates: string[] = [];
+        const allEntries = releaseData.results || [];
+        for (const entry of allEntries) {
+            for (const rd of entry.release_dates) {
+                if ((rd.type === 2 || rd.type === 3) && rd.release_date) {
+                    allType2or3Dates.push(rd.release_date);
+                }
+            }
+        }
+        if (allType2or3Dates.length > 0) {
+            internationalReleaseDate = allType2or3Dates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
+        } else {
+            // Fallback: earliest available release date from any country
+            const allDates: string[] = [];
+            for (const entry of allEntries) {
+                for (const rd of entry.release_dates) {
+                    if (rd.release_date) {
+                        allDates.push(rd.release_date);
+                    }
+                }
+            }
+            if (allDates.length > 0) {
+                internationalReleaseDate = allDates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
+            }
+        }
+        internationalReleaseDate = internationalReleaseDate
+            || sortedReleases[0]
             || movieData.release_date
             || new Date().toISOString();
 

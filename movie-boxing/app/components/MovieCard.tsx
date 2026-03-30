@@ -9,37 +9,40 @@ export interface MovieCardProps {
     releaseDate?: string | null;
 }
 
-// Inside MovieCard.tsx
 const MovieCard: React.FC<MovieCardProps> = ({
-    movieId = 0,            // Default to 0 if missing
+    movieId = 0,
     isBench = false,
-    title = "Open Slot",    // Fallback title
+    title = "Open Slot",
     posterUrl = null,
-    boxOffice = 0,          // Default to 0 for calculations
+    boxOffice = 0,
     releaseDate = null,
 }) => {
     const isEmpty = movieId === 0;
 
-    // Use a default style if releaseDate is missing
+    // --- DATE PARSING LOGIC ---
+    // Standardize to ISO UTC format to prevent local timezone shifting
+    const dateStr = (releaseDate && !isEmpty) 
+        ? (releaseDate.endsWith('Z') ? releaseDate : `${releaseDate}T00:00:00Z`) 
+        : null;
+    
+    const relDateUTC = dateStr ? new Date(dateStr) : null;
+
+    // --- DYNAMIC STYLING ---
     let cardStyle = isEmpty
         ? 'border-neutral-800 bg-neutral-900/20 border-dashed opacity-50'
         : 'border-neutral-700 bg-neutral-800/50';
 
-    // Safe Check for releaseDate
-    if (releaseDate && !isEmpty) {
-        try {
-            const rel = new Date(releaseDate);
-            const now = new Date();
-            const oneMonthFromNow = new Date();
-            oneMonthFromNow.setMonth(now.getMonth() + 1);
+    if (relDateUTC) {
+        const now = new Date();
+        const oneMonthFromNow = new Date();
+        oneMonthFromNow.setMonth(now.getMonth() + 1);
 
-            if (rel <= now) {
-                cardStyle = 'border-green-500/40 bg-green-500/10 shadow-[0_0_15px_-5px_rgba(34,197,94,0.2)]';
-            } else if (rel <= oneMonthFromNow) {
-                cardStyle = 'border-orange-500/40 bg-orange-500/10 shadow-[0_0_15px_-5px_rgba(249,115,22,0.2)]';
-            }
-        } catch (e) {
-            console.error("Invalid date passed to MovieCard:", releaseDate);
+        if (relDateUTC <= now) {
+            // Released: Green Glow
+            cardStyle = 'border-green-500/40 bg-green-500/10 shadow-[0_0_15px_-5px_rgba(34,197,94,0.2)]';
+        } else if (relDateUTC <= oneMonthFromNow) {
+            // Releasing Soon: Orange Glow
+            cardStyle = 'border-orange-500/40 bg-orange-500/10 shadow-[0_0_15px_-5px_rgba(249,115,22,0.2)]';
         }
     }
 
@@ -48,7 +51,11 @@ const MovieCard: React.FC<MovieCardProps> = ({
             <div>
                 <div className="w-full aspect-[2/3] bg-neutral-950 rounded-2xl overflow-hidden flex items-center justify-center relative border border-neutral-800/50">
                     {posterUrl ? (
-                        <img src={`https://image.tmdb.org/t/p/w400${posterUrl}`} alt={title} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                        <img 
+                            src={`https://image.tmdb.org/t/p/w400${posterUrl}`} 
+                            alt={title} 
+                            className="w-full h-full object-cover transition-transform group-hover:scale-110" 
+                        />
                     ) : (
                         <div className="text-[10px] uppercase font-black text-neutral-600 tracking-widest text-center px-4 leading-tight">
                             {isEmpty ? "Open Roster Spot" : "Poster Pending"}
@@ -67,9 +74,17 @@ const MovieCard: React.FC<MovieCardProps> = ({
                     </p>
                 </div>
             </div>
+
             <div>
                 <p className='text-sm text-neutral-400'>
-                    {new Date(String(releaseDate)).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                    {relDateUTC
+                        ? relDateUTC.toLocaleDateString(undefined, { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric',
+                            timeZone: 'UTC' // Force UTC to prevent the "Day-Off-By-One" bug
+                          })
+                        : ''}
                 </p>
             </div>
 

@@ -11,6 +11,7 @@ import './functions/movies/boxOfficeUpdate';
 import './functions/movies/getMovieInfo';
 import './functions/movies/getMovies';
 import './functions/movies/searchMovies';
+import './functions/movies/localMovieUpdate';
 
 import './functions/teams/picks/pickMovie';
 import './functions/teams/createTeam';

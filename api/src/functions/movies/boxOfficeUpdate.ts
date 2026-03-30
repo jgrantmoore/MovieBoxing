@@ -43,6 +43,7 @@ export async function boxOfficeUpdate(myTimer: Timer, context: InvocationContext
                     SET BoxOffice = @BoxOffice${shouldUpdateReleaseDate ? ', DomesticReleaseDate = @DomesticReleaseDate' : ''}
                     WHERE TMDBId = @TMDBId
                 `);
+                context.log(`Updated movie ${movie.Title} (TMDB ID: ${movie.TMDBId}) with Box Office: ${movieData.revenue} and US Release Date: ${usReleaseDate}`);
             }
         } catch (err) {
             context.log(`Error updating movie ${movie.TMDBId}: ${err}`);
