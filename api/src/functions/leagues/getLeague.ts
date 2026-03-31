@@ -75,11 +75,8 @@ export async function getLeague(request: HttpRequest, context: InvocationContext
     if (result.recordset.length > 0) {
         const rows = result.recordset;
 
-        const joined = rows.some(row => row.OwnerUserId === userId);
         const isPrivate = rows[0].JoinPasswordHash == null ? false : true;
-        const isAdmin = rows[0].AdminUserId === userId;
-
-        const leagueData = {
+        let leagueData: any = {
             LeagueId: rows[0].LeagueId,
             LeagueName: rows[0].LeagueName,
             StartDate: rows[0].StartDate,
@@ -87,8 +84,6 @@ export async function getLeague(request: HttpRequest, context: InvocationContext
             HasDrafted: rows[0].HasDrafted,
             IsDrafting: rows[0].IsDrafting,
             isPrivate: isPrivate,
-            Joined: joined,
-            isAdmin: isAdmin,
             AdminName: rows[0].AdminName,
             Rules: {
                 Starting: rows[0].StartingNumber,
@@ -97,6 +92,12 @@ export async function getLeague(request: HttpRequest, context: InvocationContext
             },
             Teams: [] as any[]
         };
+
+        // Only include these fields if authenticated
+        if (userId > 0) {
+            leagueData.Joined = rows.some(row => row.OwnerUserId === userId);
+            leagueData.isAdmin = rows[0].AdminUserId === userId;
+        }
 
         // Grouping logic
         rows.forEach(row => {

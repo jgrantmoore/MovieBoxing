@@ -28,7 +28,7 @@ function LandingPageContent() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2/3 h-96 bg-red-600/10 blur-[120px] rounded-full" />
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
           <div className="inline-block px-4 py-1.5 mb-6 border border-red-600/30 rounded-full bg-red-600/5 text-red-600 text-xs font-bold uppercase tracking-widest">
-            Open Beta Now Live
+            Closed Beta Now Live
           </div>
           <h2 className="text-6xl md:text-8xl font-black mb-8 leading-[0.9] uppercase italic tracking-tighter">
             The Box Office <br />
@@ -44,11 +44,11 @@ function LandingPageContent() {
               {session ? "Enter the Arena" : "Get Started"}
             </Link>
             <a href="#rules" className="w-full sm:w-auto border border-slate-700 font-bold text-xl px-10 py-5 rounded-2xl hover:bg-slate-900 transition-colors">
-              Rules of Engagement
+              How it Works
             </a>
-            <a href="/leagues/old" className="w-full sm:w-auto border border-slate-700 font-bold text-xl px-10 py-5 rounded-2xl hover:bg-slate-900 transition-colors">
-              Temp Link to the Original League
-            </a>
+            <Link href="/leagues/search" className="w-full sm:w-auto border border-slate-700 font-bold text-xl px-10 py-5 rounded-2xl hover:bg-slate-900 transition-colors">
+              Find a League
+            </Link>
           </div>
         </div>
       </main>

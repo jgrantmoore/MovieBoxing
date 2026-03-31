@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import MovieHeader from '../components/MovieHeader';
 import Navbar from '../components/Navbar';
 import { signIn } from 'next-auth/react';
 import Footer from '../components/Footer';
@@ -67,6 +66,8 @@ export default function Register() {
             if (res.ok) {
                 // Assuming registration succeeds, redirect to login or dashboard
                 router.push('/login'); // Adjust route as needed
+            } else if (res.status === 409) {
+                setError('Email or username already in use.');
             } else {
                 const data = await res.json();
                 setError(data.message || 'Registration failed');

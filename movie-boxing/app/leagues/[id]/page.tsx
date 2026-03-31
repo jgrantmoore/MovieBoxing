@@ -7,7 +7,7 @@ import MovieCard from "../../components/MovieCard";
 import Footer from "../../components/Footer";
 import ReleaseOrder from "../../components/ReleaseOrder";
 import { useSession } from 'next-auth/react';
-import { Lock, X, Trophy, Calendar, Armchair, Trash2, Settings, UserStar, Users, UserMinus, Pencil, Search, LayoutGrid, ListOrdered } from 'lucide-react';
+import { Lock, X, Trophy, Calendar, Armchair, Trash2, Settings, UserStar, Users, UserMinus, Pencil, Search, LayoutGrid, ListOrdered, Medal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -90,15 +90,18 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
 
     useEffect(() => {
         async function fetchData() {
-            if (sessionStatus !== "authenticated") return;
-
             setLoading(true);
 
             try {
                 const { id } = await params;
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leagues?id=${id}`, {
-                    headers: { 'Authorization': `Bearer ${session.accessToken}` }
-                });
+                let res;
+                if (session == null) {
+                    res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leagues?id=${id}`);
+                } else {
+                    res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leagues?id=${id}`, {
+                        headers: { 'Authorization': `Bearer ${session.accessToken}` }
+                    });
+                }
                 if (res.ok) {
                     const data = await res.json();
                     setTeams(data.Teams || []);
@@ -306,7 +309,18 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
 
             if (res.ok) {
                 setStatusMessage({ type: 'success', text: "Roster override successful!" });
-                //setTimeout(() => window.location.reload(), 1000);
+
+                // Fetch the updated team data (or just update Picks in state)
+                const teamRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/teams/my-teams?id=${selectedAdminTeam.TeamId}`, {
+                    headers: { 'Authorization': `Bearer ${session?.accessToken}` }
+                });
+                if (teamRes.ok) {
+                    const updatedTeam = await teamRes.json();
+                    setSelectedAdminTeam((prev: any) => ({
+                        ...prev,
+                        Picks: updatedTeam.Picks
+                    }));
+                }
             }
         } catch (err) {
             console.error("Manual assign failed", err);
@@ -623,6 +637,20 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                                                 </button>
                                             ))}
                                         </div>
+                                        {selectedSlot && (
+                                            <div className="mt-6">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2 block">Current Movie in Slot {selectedSlot}</p>
+                                                <MovieCard
+                                                    movieId={selectedAdminTeam.Picks?.find((p: any) => p.OrderDrafted === selectedSlot)?.MovieId || 0}
+                                                    isBench={selectedSlot > STARTING_SLOTS}
+                                                    title={selectedAdminTeam.Picks?.find((p: any) => p.OrderDrafted === selectedSlot)?.Title || "Open Slot"}
+                                                    posterUrl={selectedAdminTeam.Picks?.find((p: any) => p.OrderDrafted === selectedSlot)?.PosterUrl || ""}
+                                                    boxOffice={selectedAdminTeam.Picks?.find((p: any) => p.OrderDrafted === selectedSlot)?.BoxOffice || 0}
+                                                    releaseDate={selectedAdminTeam.Picks?.find((p: any) => p.OrderDrafted === selectedSlot)?.USReleaseDate || ""}
+                                                    compact={true}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -844,7 +872,7 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                         className={`flex items-center gap-2 px-6 py-3 rounded-[1.5rem] font-black uppercase italic tracking-widest text-xs transition-all ${activeTab === 'leaderboard' ? 'bg-red-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
                             }`}
                     >
-                        <ListOrdered size={16} />
+                        <Medal size={16} />
                         Leaderboard
                     </button>
                 </div>
@@ -923,9 +951,9 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                 )}
 
                 {/* Release Schedule Section */}
-                {/* {activeTab === 'release' && (
-                    <ReleaseOrder teams={teams} />
-                )} */}
+                {activeTab === 'release' && (
+                    <ReleaseOrder />
+                )}
 
                 {activeTab === 'leaderboard' && (
                     <div>Leaderboard Coming Soon...</div>

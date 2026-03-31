@@ -78,6 +78,45 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
+    async signIn({ user, account, profile }) {
+      console.log("DEBUG: Provider is:", account?.provider);
+      console.log("DEBUG: User object from provider:", user);
+      console.log("DEBUG: API Env var:", process.env.API_URL);
+      console.log("DEBUG: Next Public api url:", process.env.NEXT_PUBLIC_API_URL);
+
+      if (account?.provider === "google") {
+        try {
+          // Send Google info to a NEW Azure Function endpoint
+          const res = await fetch(`${process.env.API_URL}/users/sync-google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: user.email,
+              name: user.name,
+            }),
+          });
+
+          console.log("DEBUG: Sync response from API:", res);
+
+          const data = await res.json();
+
+          if (res.ok && data.token) {
+            // Attach the API's token and internal ID to the user object
+            // so the JWT callback can pick it up later
+            user.accessToken = data.token;
+            user.id = String(data.userId);
+            user.username = data.username;
+            return true; // Allow sign in
+          } else {
+            return false; // Deny if backend fails to sync
+          }
+        } catch (error) {
+          console.error("Google Sync Error:", error);
+          return false;
+        }
+      }
+      return true; // For Credentials login
+    },
     async jwt({ token, user }) {
       if (user) {
         token.sub = user.id;

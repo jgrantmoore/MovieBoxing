@@ -27,6 +27,7 @@ import './functions/users/register';
 import './functions/users/updateUser';
 import './functions/users/getTopPerformingMovies';
 import './functions/users/getUserStats';
+import './functions/users/syncGoogleUser';
 
 import './functions/warmer'
 

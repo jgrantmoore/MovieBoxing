@@ -7,6 +7,7 @@ export interface MovieCardProps {
     posterUrl?: string | null;
     boxOffice?: number;
     releaseDate?: string | null;
+    compact?: boolean;     // Optional: renders a smaller card for admin edit screens
 }
 
 const MovieCard: React.FC<MovieCardProps> = ({
@@ -16,6 +17,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
     posterUrl = null,
     boxOffice = 0,
     releaseDate = null,
+    compact = false,
 }) => {
     const isEmpty = movieId === 0;
 
@@ -46,8 +48,13 @@ const MovieCard: React.FC<MovieCardProps> = ({
         }
     }
 
+    // Compact mode classes
+    const compactClasses = compact
+        ? 'p-2 rounded-xl min-h-[120px] text-xs max-w-[190px] w-full'
+        : 'p-4 rounded-3xl min-h-[220px]';
+
     return (
-        <div className={`p-4 rounded-3xl border flex flex-col justify-between min-h-[220px] transition-all duration-300 group hover:scale-[1.02] ${cardStyle}`}>
+        <div className={`${compactClasses} border flex flex-col justify-between transition-all duration-300 group hover:scale-[1.02] ${cardStyle}`}>
             <div>
                 <div className="w-full aspect-[2/3] bg-neutral-950 rounded-2xl overflow-hidden flex items-center justify-center relative border border-neutral-800/50">
                     {posterUrl ? (

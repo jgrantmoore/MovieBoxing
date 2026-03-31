@@ -12,6 +12,16 @@ export async function login(request: HttpRequest, context: InvocationContext): P
     // Destructure the 'username' field (which could contain an email or a username)
     const { username, password } = await request.json() as any;
 
+    let parsedUsername = username.trim().toLowerCase();
+    if (parsedUsername.length < 3 || parsedUsername.length > 50) {
+        return { status: 400, body: "Username/Email must be between 3 and 50 characters." };
+    }
+
+    let parsedEmail = username.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parsedEmail) && !/^[a-zA-Z0-9_]+$/.test(parsedUsername)) {
+        return { status: 400, body: "Invalid username/email format." };
+    }
+
     try {
         const pool = await poolPromise;
 

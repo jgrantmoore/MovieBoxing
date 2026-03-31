@@ -11,7 +11,8 @@ export default withAuth({
 export const config = {
   matcher: [
     "/dashboard/:path*",  // Protects /dashboard and all sub-routes
-    "/leagues/:path*",   // Protects /leagues and all sub-routes
+    "/leagues",          // Protects just the /leagues page
+    "/leagues/create",   // Protects /leagues and all sub-routes
     "/profile/:path*",           // Protects just the /profile page
     "/admin/:path*",      // Protects admin routes
   ],

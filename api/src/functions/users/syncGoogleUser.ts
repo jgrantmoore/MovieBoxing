@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import * as sql from 'mssql';
 import { poolPromise } from "../../db";
+import * as jwt from 'jsonwebtoken';
 
 export async function syncGoogleUser(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     try {
@@ -20,14 +21,21 @@ export async function syncGoogleUser(request: HttpRequest, context: InvocationCo
         if (userCheck.recordset.length > 0) {
             // User exists - Return the existing UserId
             const existingUser = userCheck.recordset[0];
-            context.log(`Sync: Existing Google user found: ${email}`);
-            
-            return { 
-                status: 200, 
-                jsonBody: { 
+            const token = jwt.sign(
+                { userId: existingUser.UserId, email: email },
+                process.env.JWT_SECRET!,
+                { expiresIn: '1h' }
+            );
+
+            return {
+                status: 200,
+                jsonBody: {
+                    token, // MUST include this
                     userId: existingUser.UserId,
-                    isNewUser: false 
-                } 
+                    username: existingUser.Username || email.split('@')[0],
+                    displayName: existingUser.DisplayName,
+                    isNewUser: false
+                }
             };
         }
 
@@ -46,14 +54,21 @@ export async function syncGoogleUser(request: HttpRequest, context: InvocationCo
             `);
 
         const newUserId = insertResult.recordset[0].UserId;
-        context.log(`Sync: Created new Google user: ${email}`);
+        const newToken = jwt.sign(
+            { userId: newUserId, email: email },
+            process.env.JWT_SECRET!,
+            { expiresIn: '1h' }
+        );
 
-        return { 
-            status: 201, 
-            jsonBody: { 
+        return {
+            status: 201,
+            jsonBody: {
+                token: newToken,
                 userId: newUserId,
-                isNewUser: true 
-            } 
+                username: placeholderUsername,
+                displayName: name,
+                isNewUser: true
+            }
         };
 
     } catch (err) {
@@ -62,8 +77,8 @@ export async function syncGoogleUser(request: HttpRequest, context: InvocationCo
     }
 }
 
-app.http('syncGoogleUser', { 
-    methods: ['POST', 'OPTIONS'], 
-    route: 'users/sync-google', 
-    handler: syncGoogleUser 
+app.http('syncGoogleUser', {
+    methods: ['POST', 'OPTIONS'],
+    route: 'users/sync-google',
+    handler: syncGoogleUser
 });

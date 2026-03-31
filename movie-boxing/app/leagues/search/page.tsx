@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
-import { Search, Users, Trophy, ArrowRight } from 'lucide-react';
+import { Search, Users, Trophy, ArrowRight, Lock, LockOpen } from 'lucide-react';
 
 export default function LeagueSearch() {
     const [query, setQuery] = useState('');
@@ -49,7 +49,7 @@ export default function LeagueSearch() {
                         Find Your <span className="text-red-600">Arena</span>
                     </h1>
                     <p className="text-neutral-500 font-mono text-sm uppercase tracking-widest">
-                        Search for open leagues or join a private draft
+                        Search for open leagues or join a private one
                     </p>
                 </header>
 
@@ -83,13 +83,10 @@ export default function LeagueSearch() {
                                 className="group bg-neutral-900/40 border border-neutral-800 p-8 rounded-[2rem] hover:border-red-600/50 transition-all flex flex-col justify-between"
                             >
                                 <div>
-                                    <div className="flex justify-between items-start mb-6">
+                                    <div className="flex justify-between flex-col items-start mb-3 gap-1">
                                         <h3 className="text-3xl font-black uppercase italic tracking-tighter leading-none group-hover:text-red-600 transition-colors">
                                             {league.LeagueName}
                                         </h3>
-                                        <span className="bg-neutral-800 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
-                                            {league.FreeAgentsAllowed ? 'Market Open' : 'Locked'}
-                                        </span>
                                     </div>
                                     
                                     <div className="flex gap-6 mb-8 text-neutral-400 font-mono text-xs uppercase">
@@ -101,6 +98,17 @@ export default function LeagueSearch() {
                                             <Trophy size={14} className="text-red-600" />
                                             <span>{league.StartingNumber} Starters</span>
                                         </div>
+                                        {league.isPrivate ? (
+                                            <div className="flex items-center gap-2">
+                                                <Lock size={14} className="text-red-600" />
+                                                <span>Private League</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2">
+                                                <LockOpen size={14} className="text-green-500" />
+                                                <span>Public League</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
