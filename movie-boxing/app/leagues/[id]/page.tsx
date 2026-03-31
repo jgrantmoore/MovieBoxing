@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import MovieCard from "../../components/MovieCard";
 import Footer from "../../components/Footer";
 import ReleaseOrder from "../../components/ReleaseOrder";
+import Leaderboard from "../../components/Leaderboard";
 import { useSession } from 'next-auth/react';
 import { Lock, X, Trophy, Calendar, Armchair, Trash2, Settings, UserStar, Users, UserMinus, Pencil, Search, LayoutGrid, ListOrdered, Medal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -19,12 +20,24 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
     const [openBench, setOpenBench] = useState<Set<string>>(new Set());
     const [adminSettingsOpen, setAdminSettingsOpen] = useState(false);
     const [activeEditTeamId, setActiveEditTeamId] = useState<number>(0);
+    const [swapSelection, setSwapSelection] = useState<number | null>(null);
     const [activeTab, setActiveTab] = useState<'teams' | 'release' | 'leaderboard'>('teams');
     const router = useRouter();
 
-    const currentUserTeam = teams.find(t => t.OwnerUserId === session?.user?.id);
+    const currentUserTeam = useMemo(() => {
+        if (!teams || !session?.user?.id) return null;
+        return teams.find(t => String(t.OwnerUserId) === String(session.user.id));
+    }, [teams, session]);
+
+    // 2. Identify WHICH team is actually being edited in the modal
+    // (Defaults to current user, but switches if an Admin clicks another team)
+    const teamBeingEdited = useMemo(() => {
+        const targetId = activeEditTeamId !== 0 ? activeEditTeamId : currentUserTeam?.TeamId;
+        return teams.find(t => t.TeamId === targetId);
+    }, [teams, activeEditTeamId, currentUserTeam]);
+
     const userTeamId = currentUserTeam?.TeamId || 0;
-    const userTeamName = currentUserTeam?.TeamName || "";
+    const userTeamName = teamBeingEdited?.TeamName || "";
 
     // Admin Manual Edit States
     const [isAdminEditModalOpen, setIsAdminEditModalOpen] = useState(false);
@@ -258,6 +271,55 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
         }
     };
 
+    const handleSwapMovies = async (slot1: number, slot2: number) => {
+        setIsSubmitting(true);
+        setStatusMessage(null); // Clear previous errors
+
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/teams/swap`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.accessToken}`
+                },
+                body: JSON.stringify({
+                    TeamId: activeEditTeamId || userTeamId, // Ensure we have an ID
+                    Slot1: slot1,
+                    Slot2: slot2
+                })
+            });
+
+            // 1. Check if the response is successful
+            if (res.ok) {
+                setStatusMessage({ type: 'success', text: "Roster reshuffled!" });
+                setTimeout(() => window.location.reload(), 1000);
+                return;
+            }
+
+            // 2. Handle Errors (400, 500, etc.)
+            // First, check the content type to see if we should parse as JSON or Text
+            const contentType = res.headers.get("content-type");
+            let errorMessage = "An unexpected error occurred.";
+
+            if (contentType && contentType.includes("application/json")) {
+                const errorData = await res.json();
+                errorMessage = errorData.message || errorMessage;
+            } else {
+                // This catches the plain string from your 'body: "Illegal Move..."'
+                errorMessage = await res.text();
+            }
+
+            setStatusMessage({ type: 'error', text: errorMessage });
+
+        } catch (error) {
+            console.error("Swap Network Error:", error);
+            setStatusMessage({ type: 'error', text: "Network error. The ref stopped the fight." });
+        } finally {
+            setIsSubmitting(false);
+            setSwapSelection(null); // Reset selection regardless of success/fail
+        }
+    };
+    
     const handleDeleteTeam = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsDeleting(true);
@@ -431,12 +493,20 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
             {isEditTeamModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-md bg-black/60">
                     <div className="bg-slate-900 border border-slate-800 w-full max-w-3xl rounded-[2.5rem] p-8 shadow-2xl relative overflow-y-auto max-h-[90vh]">
-                        <button onClick={() => setIsEditTeamModalOpen(false)} className="absolute top-6 right-6 text-neutral-500 hover:text-white">
+                        <button
+                            onClick={() => {
+                                setIsEditTeamModalOpen(false);
+                                setSwapSelection(null);
+                            }}
+                            className="absolute top-6 right-6 text-neutral-500 hover:text-white"
+                        >
                             <X size={24} />
                         </button>
 
-                        <h2 className="text-3xl font-black uppercase italic tracking-tighter mb-2 text-red-600">Edit your Team</h2>
-                        <p className="text-neutral-500 text-sm mb-6 uppercase tracking-widest font-bold">Current Name: {userTeamName}</p>
+                        <h2 className="text-3xl font-black uppercase italic tracking-tighter mb-2 text-red-600">Edit Roster</h2>
+                        <p className="text-neutral-500 text-sm mb-6 uppercase tracking-widest font-bold">
+                            Managing: {userTeamName}
+                        </p>
 
                         <form onSubmit={handleEditTeam} className="space-y-8 flex flex-col">
                             <div className="relative">
@@ -450,10 +520,15 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                                 />
                             </div>
 
-                            {/* Preview of the team being edited */}
+                            {/* Roster Grid / Swap Interface */}
                             <div className="bg-neutral-950 rounded-3xl border border-neutral-800 p-6">
                                 <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-neutral-500">Roster Preview</h3>
+                                    <div>
+                                        <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-neutral-500">Roster Management</h3>
+                                        <p className="text-[10px] text-red-500 font-black uppercase italic mt-1">
+                                            {swapSelection ? "Select another movie to swap positions" : "Click a movie to begin swapping"}
+                                        </p>
+                                    </div>
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -470,18 +545,39 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                     {Array.from({ length: openBench.has("preview") ? TOTAL_SLOTS : STARTING_SLOTS }).map((_, idx) => {
                                         const slot = idx + 1;
-                                        const pick = currentUserTeam?.Picks?.find((p: any) => p.OrderDrafted === slot);
+                                        const pick = teamBeingEdited?.Picks?.find((p: any) => p.OrderDrafted === slot);
+                                        const isSelected = swapSelection === slot;
+
                                         return (
-                                            <div key={slot} className="scale-90">
+                                            <div
+                                                key={slot}
+                                                className={`relative cursor-pointer transition-all duration-200 hover:scale-95 active:scale-90
+                                        ${isSelected ? 'ring-4 ring-red-600 rounded-xl scale-95' : 'scale-90'}
+                                    `}
+                                                onClick={() => {
+                                                    if (!pick) return; // Can't swap empty slots
+                                                    if (swapSelection === null) {
+                                                        setSwapSelection(slot);
+                                                    } else if (swapSelection === slot) {
+                                                        setSwapSelection(null);
+                                                    } else {
+                                                        handleSwapMovies(swapSelection, slot);
+                                                    }
+                                                }}
+                                            >
                                                 <MovieCard
-                                                    {...pick}
-                                                    title={pick?.Title || "Open Slot"}
                                                     movieId={pick?.MovieId || 0}
-                                                    isBench={slot > STARTING_SLOTS}
+                                                    title={pick?.MovieTitle || "Open Slot"}
                                                     posterUrl={pick?.PosterUrl}
-                                                    boxOffice={pick?.BoxOffice}
-                                                    releaseDate={pick?.USReleaseDate}
+                                                    boxOffice={pick?.BoxOffice || 0}
+                                                    releaseDate={pick?.InternationalReleaseDate}
+                                                    isBench={slot > STARTING_SLOTS}
                                                 />
+                                                {isSelected && (
+                                                    <div className="absolute inset-0 bg-red-600/20 flex items-center justify-center rounded-xl pointer-events-none">
+                                                        <span className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded shadow-lg uppercase italic">Swapping...</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -516,7 +612,6 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                     </div>
                 </div>
             )}
-
             {/* EDIT TEAM MODAL */}
             {isUpdateLeagueModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-md bg-black/60">
@@ -952,11 +1047,11 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
 
                 {/* Release Schedule Section */}
                 {activeTab === 'release' && (
-                    <ReleaseOrder />
+                    <ReleaseOrder leagueId={leagueInfo.LeagueId} />
                 )}
 
                 {activeTab === 'leaderboard' && (
-                    <div>Leaderboard Coming Soon...</div>
+                    <Leaderboard leagueId={leagueInfo.LeagueId} />
                 )}
             </main>
             <Footer />

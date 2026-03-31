@@ -6,6 +6,8 @@ import './functions/leagues/getMyLeagues';
 import './functions/leagues/updateLeague';
 import './functions/leagues/getLeague';
 import './functions/leagues/searchLeagues';
+import './functions/leagues/getLeagueReleaseOrder';
+import './functions/leagues/getLeaderboard';
 
 import './functions/movies/boxOfficeUpdate';
 import './functions/movies/getMovieInfo';
@@ -20,6 +22,7 @@ import './functions/teams/getUserTeams';
 import './functions/teams/updateTeam';
 import './functions/teams/getUserTeamsAndPicks';
 import './functions/teams/assignMovie';
+import './functions/teams/swapMovies';
 
 import './functions/users/getUser';
 import './functions/users/login';
