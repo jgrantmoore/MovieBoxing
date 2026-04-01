@@ -23,6 +23,7 @@ import './functions/teams/updateTeam';
 import './functions/teams/getUserTeamsAndPicks';
 import './functions/teams/assignMovie';
 import './functions/teams/swapMovies';
+import './functions/teams/replaceMovie';
 
 import './functions/users/getUser';
 import './functions/users/login';

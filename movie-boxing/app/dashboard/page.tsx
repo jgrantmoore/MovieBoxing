@@ -7,6 +7,7 @@ import Footer from '../components/Footer';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { SessionGuard } from '../components/SessionGuard';
+import { useRouter } from 'next/navigation';
 
 export default function Dashboard() {
     const { data: session } = useSession();
@@ -14,6 +15,8 @@ export default function Dashboard() {
     const [topMovies, setTopMovies] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [openBench, setOpenBench] = useState<Set<string>>(new Set());
+
+    const router = useRouter();
 
     const STARTING_SLOTS = 5;
     const TOTAL_SLOTS = 8;
@@ -40,6 +43,11 @@ export default function Dashboard() {
 
                 if (teamRes.ok) setTeams(await teamRes.json());
                 if (movieRes.ok) setTopMovies(await movieRes.json());
+
+                if (teamRes.status === 401 || movieRes.status === 401) {
+                    // Token might be expired or invalid, handle logout or token refresh here if needed
+                    router.replace('/login');
+                }
 
             } catch (err) {
                 console.error("Dashboard Load Error:", err);

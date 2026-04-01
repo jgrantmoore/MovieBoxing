@@ -8,7 +8,7 @@ import Footer from "../../components/Footer";
 import ReleaseOrder from "../../components/ReleaseOrder";
 import Leaderboard from "../../components/Leaderboard";
 import { useSession } from 'next-auth/react';
-import { Lock, X, Trophy, Calendar, Armchair, Trash2, Settings, UserStar, Users, UserMinus, Pencil, Search, LayoutGrid, ListOrdered, Medal } from 'lucide-react';
+import { Lock, X, Trophy, Calendar, Armchair, Trash2, Settings, UserStar, Users, UserMinus, Pencil, Search, LayoutGrid, ListOrdered, Medal, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -50,10 +50,12 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
     const debouncedAdminSearch = useDebounce(adminSearchTerm, 500);
 
 
+
     // Modal & Join States
     const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isEditTeamModalOpen, setIsEditTeamModalOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
     const [isUpdateLeagueModalOpen, setIsUpdateLeageModalOpen] = useState(false);
     const [isDeleteTeamModalOpen, setIsDeleteTeamModalOpen] = useState(false);
     const [leaguePassword, setLeaguePassword] = useState('');
@@ -73,6 +75,33 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
     useEffect(() => {
         document.title = leagueInfo?.LeagueName != null ? "Movie Boxing - " + leagueInfo.LeagueName : "Movie Boxing - League Info";
     }, [leagueInfo]);
+
+    // Debounce the main search term for the Front Office modal
+    const debouncedSearch = useDebounce(searchTerm, 500);
+
+    useEffect(() => {
+        const performSearch = async () => {
+            if (!debouncedSearch) {
+                setAdminSearchResults([]); // Reusing this state for the results
+                return;
+            }
+            try {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/movies/search?q=${debouncedSearch}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        StartDate: leagueInfo.StartDate,
+                        EndDate: leagueInfo.EndDate
+                    })
+                });
+                const data = await res.json();
+                setAdminSearchResults(data);
+            } catch (err) {
+                console.error("Search error:", err);
+            }
+        };
+        performSearch();
+    }, [debouncedSearch, leagueInfo]);
 
     // for admin search bar
     useEffect(() => {
@@ -319,7 +348,7 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
             setSwapSelection(null); // Reset selection regardless of success/fail
         }
     };
-    
+
     const handleDeleteTeam = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsDeleting(true);
@@ -389,6 +418,52 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
         }
     };
 
+    const handleReplaceWithFreeAgent = async (newMovie: any) => {
+        if (!swapSelection || !teamBeingEdited) {
+            setStatusMessage({ type: 'error', text: "Select a roster slot first!" });
+            return;
+        }
+
+        const slotToReplace = swapSelection;
+        const oldPick = teamBeingEdited.Picks?.find((p: any) => p.OrderDrafted === slotToReplace);
+
+        // Prompt for confirmation using the title from the TMDB search result
+        if (!confirm(`Sign ${newMovie.title} to Slot ${slotToReplace}?${oldPick ? ` (This will release ${oldPick.MovieTitle})` : ''}`)) return;
+
+        setIsSubmitting(true);
+        setStatusMessage(null);
+
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/teams/replace`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.accessToken}`
+                },
+                body: JSON.stringify({
+                    TeamId: teamBeingEdited.TeamId,
+                    TMDBId: newMovie.id, // Only passing the external ID
+                    Slot: slotToReplace
+                })
+            });
+
+            if (res.ok) {
+                setStatusMessage({ type: 'success', text: "Transaction processed! Roster updated." });
+                setSwapSelection(null);
+                setSearchTerm("");
+                // Reload to get fresh data from the DB
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                const errText = await res.text();
+                setStatusMessage({ type: 'error', text: errText || "Transaction declined by the league." });
+            }
+        } catch (error) {
+            setStatusMessage({ type: 'error', text: "Network error. The trade window timed out." });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+    
     // This ensures that every time leagueInfo updates, these numbers update too.
     const STARTING_SLOTS = leagueInfo?.Rules?.Starting || 5;
     const BENCH_SLOTS = leagueInfo?.Rules?.Bench || 3;
@@ -399,7 +474,7 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
             <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col">
                 <Navbar />
                 <div className="flex-1 flex flex-col items-center justify-center">
-                    <div className="text-6xl font-black italic text-red-600 uppercase animate-pulse tracking-tighter">
+                    <div className="text-6xl font-black italic text-red-600 uppercase animate-pulse tracking-tighter text-center">
                         Loading League...
                     </div>
                 </div>
@@ -489,130 +564,206 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                 </div>
             )}
 
-            {/* EDIT TEAM MODAL */}
+            {/* EDIT TEAM MODAL (FRONT OFFICE) */}
             {isEditTeamModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-md bg-black/60">
-                    <div className="bg-slate-900 border border-slate-800 w-full max-w-3xl rounded-[2.5rem] p-8 shadow-2xl relative overflow-y-auto max-h-[90vh]">
-                        <button
-                            onClick={() => {
-                                setIsEditTeamModalOpen(false);
-                                setSwapSelection(null);
-                            }}
-                            className="absolute top-6 right-6 text-neutral-500 hover:text-white"
-                        >
-                            <X size={24} />
-                        </button>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 backdrop-blur-md bg-black/60">
+                    <div className="bg-slate-900 border border-slate-800 w-full max-w-5xl rounded-[2.5rem] p-6 sm:p-8 shadow-2xl relative overflow-y-auto max-h-[95vh] custom-scrollbar">
 
-                        <h2 className="text-3xl font-black uppercase italic tracking-tighter mb-2 text-red-600">Edit Roster</h2>
-                        <p className="text-neutral-500 text-sm mb-6 uppercase tracking-widest font-bold">
-                            Managing: {userTeamName}
-                        </p>
-
-                        <form onSubmit={handleEditTeam} className="space-y-8 flex flex-col">
-                            <div className="relative">
-                                <input
-                                    type="text"
-                                    placeholder="NEW TEAM NAME"
-                                    className="w-full bg-black border border-slate-800 rounded-2xl py-5 px-6 focus:border-red-600 outline-none transition-all font-black italic uppercase tracking-tighter text-xl"
-                                    value={newTeamName}
-                                    onChange={(e) => setNewTeamName(e.target.value)}
-                                    required
-                                />
-                            </div>
-
-                            {/* Roster Grid / Swap Interface */}
-                            <div className="bg-neutral-950 rounded-3xl border border-neutral-800 p-6">
-                                <div className="flex justify-between items-center mb-6">
-                                    <div>
-                                        <h3 className="text-xs font-bold uppercase tracking-[0.3em] text-neutral-500">Roster Management</h3>
-                                        <p className="text-[10px] text-red-500 font-black uppercase italic mt-1">
-                                            {swapSelection ? "Select another movie to swap positions" : "Click a movie to begin swapping"}
-                                        </p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const next = new Set(openBench);
-                                            openBench.has("preview") ? next.delete("preview") : next.add("preview");
-                                            setOpenBench(next);
-                                        }}
-                                        className="text-[10px] font-black uppercase tracking-widest bg-neutral-800 px-3 py-1 rounded-lg"
-                                    >
-                                        {openBench.has("preview") ? "Hide Bench" : "Show Bench"}
-                                    </button>
-                                </div>
-
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                    {Array.from({ length: openBench.has("preview") ? TOTAL_SLOTS : STARTING_SLOTS }).map((_, idx) => {
-                                        const slot = idx + 1;
-                                        const pick = teamBeingEdited?.Picks?.find((p: any) => p.OrderDrafted === slot);
-                                        const isSelected = swapSelection === slot;
-
-                                        return (
-                                            <div
-                                                key={slot}
-                                                className={`relative cursor-pointer transition-all duration-200 hover:scale-95 active:scale-90
-                                        ${isSelected ? 'ring-4 ring-red-600 rounded-xl scale-95' : 'scale-90'}
-                                    `}
-                                                onClick={() => {
-                                                    if (!pick) return; // Can't swap empty slots
-                                                    if (swapSelection === null) {
-                                                        setSwapSelection(slot);
-                                                    } else if (swapSelection === slot) {
-                                                        setSwapSelection(null);
-                                                    } else {
-                                                        handleSwapMovies(swapSelection, slot);
-                                                    }
-                                                }}
-                                            >
-                                                <MovieCard
-                                                    movieId={pick?.MovieId || 0}
-                                                    title={pick?.MovieTitle || "Open Slot"}
-                                                    posterUrl={pick?.PosterUrl}
-                                                    boxOffice={pick?.BoxOffice || 0}
-                                                    releaseDate={pick?.InternationalReleaseDate}
-                                                    isBench={slot > STARTING_SLOTS}
-                                                />
-                                                {isSelected && (
-                                                    <div className="absolute inset-0 bg-red-600/20 flex items-center justify-center rounded-xl pointer-events-none">
-                                                        <span className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded shadow-lg uppercase italic">Swapping...</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {statusMessage && (
-                                <p className={`text-xs font-bold uppercase tracking-widest text-center ${statusMessage.type === 'error' ? 'text-red-500' : 'text-green-500'}`}>
-                                    {statusMessage.text}
+                        {/* Header Area */}
+                        <div className="flex justify-between items-start mb-6">
+                            <div>
+                                <h2 className="text-3xl font-black uppercase italic tracking-tighter text-red-600">Front Office</h2>
+                                <p className="text-neutral-500 text-[10px] uppercase tracking-[0.2em] font-bold mt-1">
+                                    Managing: <span className="text-white">{userTeamName}</span>
                                 </p>
-                            )}
-
+                            </div>
                             <button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-neutral-800 py-5 rounded-2xl font-black uppercase italic tracking-widest transition-all shadow-lg active:scale-[0.98]"
-                            >
-                                {isSubmitting ? "SYNCING ROSTER..." : "SAVE CHANGES"}
-                            </button>
-
-                            <button
-                                type="button"
                                 onClick={() => {
                                     setIsEditTeamModalOpen(false);
-                                    setIsDeleteTeamModalOpen(true);
+                                    setSwapSelection(null);
+                                    setSearchTerm("");
                                 }}
-                                className="text-[10px] text-center font-black uppercase tracking-[0.2em] text-neutral-600 hover:text-red-500 transition-colors py-2"
+                                className="text-neutral-500 hover:text-white p-2"
                             >
-                                — Leave League & Delete Team —
+                                <X size={24} />
                             </button>
-                        </form>
+                        </div>
+
+                        {/* Main Content Grid: Stacks on mobile, Side-by-side on LG screens */}
+                        <div className="flex flex-col lg:flex-row gap-8">
+
+                            {/* LEFT: ROSTER (The "Classic" Grid) */}
+                            <div className="flex-1 space-y-6 min-w-0">
+                                <div className="bg-neutral-950 rounded-3xl border border-neutral-800 p-5">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-neutral-500 mb-4">Active Roster</h3>
+
+                                    {/* Use responsive grid: 2 cols on tiny phones, 4 on everything else */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                        {Array.from({ length: TOTAL_SLOTS }).map((_, idx) => {
+                                            const slot = idx + 1;
+                                            const pick = teamBeingEdited?.Picks?.find((p: any) => p.OrderDrafted === slot);
+                                            const isSelected = swapSelection === slot;
+
+                                            return (
+                                                <div
+                                                    key={slot}
+                                                    className={`relative cursor-pointer transition-all ${isSelected ? 'ring-2 ring-red-600 rounded-xl scale-95' : 'opacity-80 hover:opacity-100'}`}
+                                                    onClick={() => {
+                                                        if (swapSelection === null) setSwapSelection(slot);
+                                                        else if (swapSelection === slot) setSwapSelection(null);
+                                                        else handleSwapMovies(swapSelection, slot);
+                                                    }}
+                                                >
+                                                    {/* Scale down the MovieCard so it fits 4-wide without overflowing */}
+                                                    <div className="scale-[0.85] sm:scale-100 origin-top">
+                                                        <MovieCard
+                                                            movieId={pick?.MovieId || 0}
+                                                            title={pick?.MovieTitle || "Open"}
+                                                            posterUrl={pick?.PosterUrl}
+                                                            boxOffice={pick?.BoxOffice || 0}
+                                                            releaseDate={pick?.InternationalReleaseDate}
+                                                            isBench={slot > STARTING_SLOTS}
+                                                        />
+                                                    </div>
+                                                    {isSelected && (
+                                                        <div className="absolute inset-0 bg-red-600/10 flex items-center justify-center rounded-xl pointer-events-none">
+                                                            <div className="bg-red-600 text-[8px] font-black px-2 py-1 rounded uppercase italic shadow-lg">Selected</div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="relative group">
+                                    <Pencil className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-600" size={18} />
+                                    <input
+                                        type="text"
+                                        placeholder="NEW TEAM NAME"
+                                        className="w-full bg-black border border-neutral-800 rounded-xl py-4 pl-12 pr-4 focus:border-red-600 outline-none transition-all font-black italic uppercase text-lg"
+                                        value={newTeamName}
+                                        onChange={(e) => setNewTeamName(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* RIGHT: SEARCH (Vertical List) */}
+                            <div className="lg:w-[350px] space-y-4">
+                                <div className="bg-black/40 rounded-3xl border border-slate-800 p-5 flex flex-col h-full max-h-[500px]">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-neutral-500 mb-4 flex items-center gap-2">
+                                        <Search size={14} /> Scout Free Agents
+                                    </h3>
+
+                                    <div className="relative mb-4">
+                                        <input
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            placeholder={swapSelection ? "Search to replace slot..." : "Select a slot first..."}
+                                            disabled={!swapSelection} // Optional: force them to pick a slot first
+                                            className={`w-full bg-neutral-900 border ${swapSelection ? 'border-neutral-800' : 'border-red-900/30'} rounded-xl py-3 px-4 focus:border-red-600 outline-none text-[10px] font-bold uppercase italic transition-all`}
+                                        />
+                                        {!swapSelection && (
+                                            <p className="text-[8px] text-red-500 font-bold uppercase mt-2 animate-pulse">
+                                                Pick a movie from your roster to swap
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                                        {adminSearchResults.length > 0 ? (
+                                            adminSearchResults.map((movie: any) => {
+                                                // Check if movie is already taken in this league
+                                                const isOwned = teams.some(t => t.Picks?.some((p: any) => p.MovieId === movie.id));
+
+                                                return (
+                                                    <div
+                                                        key={movie.id}
+                                                        onClick={() => {
+                                                            if (!isOwned && swapSelection) {
+                                                                handleReplaceWithFreeAgent(movie);
+                                                            }
+                                                        }}
+                                                        className={`p-2 rounded-xl border flex items-center justify-between transition-all 
+                                ${isOwned
+                                                                ? 'bg-neutral-900/10 border-transparent grayscale opacity-20 cursor-not-allowed'
+                                                                : swapSelection
+                                                                    ? 'bg-neutral-800/60 border-neutral-700 hover:border-green-500 cursor-pointer group'
+                                                                    : 'opacity-40 cursor-default'}`}
+                                                    >
+                                                        <div className="flex items-center gap-3 min-w-0">
+                                                            <div className="w-10 h-14 bg-neutral-800 rounded overflow-hidden shrink-0 border border-white/5">
+                                                                {movie.poster_path && (
+                                                                    <img
+                                                                        src={`https://image.tmdb.org/t/p/w200${movie.poster_path}`}
+                                                                        className="object-cover w-full h-full"
+                                                                        alt=""
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                            <div className="truncate">
+                                                                <p className="text-[10px] font-black uppercase italic truncate text-white">
+                                                                    {movie.title}
+                                                                </p>
+                                                                <p className="text-[8px] text-neutral-500 font-mono mt-0.5">
+                                                                    {movie.release_date?.split('-')[0] || 'TBD'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        {!isOwned && swapSelection && (
+                                                            <div className="bg-green-600/20 p-1.5 rounded-lg group-hover:bg-green-600 transition-colors">
+                                                                <Plus size={14} className="text-green-500 group-hover:text-white" />
+                                                            </div>
+                                                        )}
+                                                        {isOwned && (
+                                                            <span className="text-[7px] font-bold text-neutral-600 uppercase tracking-tighter">Owned</span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center py-12 opacity-20">
+                                                <Search size={32} className="mb-2" />
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-center">
+                                                    {searchTerm ? "No free agents found" : "Enter a movie title"}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ACTION FOOTER */}
+                        <div className="mt-8 pt-6 border-t border-slate-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                            <div className="text-left">
+                                {statusMessage && (
+                                    <p className={`text-[10px] font-black uppercase italic ${statusMessage.type === 'error' ? 'text-red-500' : 'text-green-500'}`}>
+                                        {statusMessage.text}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex gap-3 w-full sm:w-auto">
+                                <button
+                                    onClick={() => setIsEditTeamModalOpen(false)}
+                                    className="flex-1 px-6 py-3 rounded-xl font-black uppercase italic text-[10px] text-neutral-500 hover:text-white"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleEditTeam}
+                                    className="flex-1 bg-red-600 px-10 py-3 rounded-xl font-black uppercase italic text-[10px] tracking-widest shadow-lg"
+                                >
+                                    Save
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
-            {/* EDIT TEAM MODAL */}
+
+            {/* EDIT LEAGUE MODAL */}
             {isUpdateLeagueModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-md bg-black/60">
                     <div className="bg-slate-900 border border-slate-800 w-full max-w-3xl rounded-[2.5rem] p-8 shadow-2xl relative overflow-y-auto max-h-[90vh]">
@@ -818,7 +969,7 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                                 {!(leagueInfo.HasDrafted) && !(leagueInfo.IsDrafting) && (
                                     <Link
                                         href={`/leagues/${leagueInfo.LeagueId}/draft`}
-                                        className="text-md bg-white text-black px-5 py-2 rounded-2xl mt-3 font-black uppercase italic tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-xl"
+                                        className="text-center text-md bg-white text-black px-5 py-2 rounded-2xl mt-3 font-black uppercase italic tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-xl"
                                     >
                                         Start Draft
                                     </Link>
@@ -944,31 +1095,31 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                     )}
                 </div>
 
-                {/* --- NEW TAB BAR SECTION --- */}
-                <div className="flex items-center gap-2 mb-8 bg-black/40 p-1.5 rounded-[2rem] w-fit border border-slate-900">
+                {/* --- TAB BAR SECTION --- */}
+                <div className="flex items-center gap-2 mb-8 bg-black/40 p-1.5 rounded-[2rem] w-full overflow-x-auto no-scrollbar border border-slate-900 whitespace-nowrap">
                     <button
                         onClick={() => setActiveTab('teams')}
-                        className={`flex items-center gap-2 px-6 py-3 rounded-[1.5rem] font-black uppercase italic tracking-widest text-xs transition-all ${activeTab === 'teams' ? 'bg-red-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
+                        className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-6 py-3 rounded-[1.5rem] font-black uppercase italic tracking-widest text-[10px] sm:text-xs transition-all ${activeTab === 'teams' ? 'bg-red-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
                             }`}
                     >
-                        <LayoutGrid size={16} />
-                        Teams
+                        <LayoutGrid size={16} className="shrink-0" />
+                        <span className="hidden xs:inline">Teams</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('release')}
-                        className={`flex items-center gap-2 px-6 py-3 rounded-[1.5rem] font-black uppercase italic tracking-widest text-xs transition-all ${activeTab === 'release' ? 'bg-red-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
+                        className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-6 py-3 rounded-[1.5rem] font-black uppercase italic tracking-widest text-[10px] sm:text-xs transition-all ${activeTab === 'release' ? 'bg-red-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
                             }`}
                     >
-                        <ListOrdered size={16} />
-                        Release Schedule
+                        <ListOrdered size={16} className="shrink-0" />
+                        <span className="hidden xs:inline text-center">Schedule</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('leaderboard')}
-                        className={`flex items-center gap-2 px-6 py-3 rounded-[1.5rem] font-black uppercase italic tracking-widest text-xs transition-all ${activeTab === 'leaderboard' ? 'bg-red-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
+                        className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-6 py-3 rounded-[1.5rem] font-black uppercase italic tracking-widest text-[10px] sm:text-xs transition-all ${activeTab === 'leaderboard' ? 'bg-red-600 text-white shadow-lg' : 'text-neutral-500 hover:text-white'
                             }`}
                     >
-                        <Medal size={16} />
-                        Leaderboard
+                        <Medal size={16} className="shrink-0" />
+                        <span className="hidden xs:inline">Stats</span>
                     </button>
                 </div>
 
