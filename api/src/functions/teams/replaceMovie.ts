@@ -57,12 +57,14 @@ export async function replaceMovie(request: HttpRequest, context: InvocationCont
                 .input('IsStarting', sql.Bit, isStarting);
 
             await req.query(`
-        -- 1. MONTHLY COOLDOWN CHECK
-        -- Checks if this team has added a movie in the last 30 days
+        -- 1. CALENDAR MONTH COOLDOWN CHECK
+        -- Checks if any movie was added to this team during the CURRENT calendar month
         IF EXISTS (
-            SELECT 1 FROM TeamMovies 
+            SELECT 1 
+            FROM TeamMovies 
             WHERE TeamId = @TeamId 
-            AND DateAdded > DATEADD(day, -30, GETDATE())
+            AND MONTH(DateAdded) = MONTH(GETDATE()) 
+            AND YEAR(DateAdded) = YEAR(GETDATE())
         )
         BEGIN
             RAISERROR('MONTHLY_LIMIT_REACHED', 16, 1);
