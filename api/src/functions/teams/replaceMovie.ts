@@ -78,17 +78,6 @@ export async function replaceMovie(request: HttpRequest, context: InvocationCont
             RETURN;
         END
 
-        -- 3. RELEASE DATE CHECK (Outgoing Movie)
-        IF EXISTS (
-            SELECT 1 FROM TeamMovies tm 
-            JOIN Movies m ON tm.MovieId = m.MovieId 
-            WHERE tm.TeamId = @TeamId AND tm.OrderDrafted = @Slot AND m.InternationalReleaseDate <= GETDATE()
-        )
-        BEGIN
-            RAISERROR('CANNOT_RELEASE_PREMIERED', 16, 1);
-            RETURN;
-        END
-
         -- 4. EXECUTE SWAP
         DELETE FROM TeamMovies WHERE TeamId = @TeamId AND OrderDrafted = @Slot;
 
