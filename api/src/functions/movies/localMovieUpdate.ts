@@ -59,14 +59,18 @@ export async function localBoxOfficeUpdate(request: HttpRequest, context: Invoca
             internationalReleaseDate = internationalReleaseDate || movieData.release_date || new Date().toISOString();
 
             // Only update if the box office, US release date, or International release date has changed
-            const shouldUpdateBoxOffice = movieData.revenue !== movie.BoxOffice;
+            let boxOffice = 0;
+            if (movieData.revenue != null) {
+                boxOffice = movieData.revenue;
+            } 
+            const shouldUpdateBoxOffice = boxOffice !== movie.BoxOffice;
             const shouldUpdateReleaseDate = usReleaseDate && usReleaseDate !== movie.DomesticReleaseDate;
             const shouldUpdateIntlReleaseDate = internationalReleaseDate && internationalReleaseDate !== movie.InternationalReleaseDate;
 
             if (shouldUpdateBoxOffice || shouldUpdateReleaseDate || shouldUpdateIntlReleaseDate) {
                 const req = pool.request()
                     .input('TMDBId', sql.Int, movie.TMDBId)
-                    .input('BoxOffice', sql.Decimal, movieData.revenue);
+                    .input('BoxOffice', sql.Decimal, boxOffice);
                 if (shouldUpdateReleaseDate) {
                     req.input('DomesticReleaseDate', sql.Date, usReleaseDate);
                 }
