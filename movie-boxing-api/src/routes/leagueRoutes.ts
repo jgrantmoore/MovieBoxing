@@ -19,7 +19,7 @@ router.post('/create', authenticateToken, requireAuth, createLeague);
 router.delete('/delete', authenticateToken, requireAuth, deleteLeague);
 // /api/leagues/leaderboard?id=X
 router.get('/leaderboard', getLeaderboard);
-// /api/leagues/?id=X
+// /api/leagues?id=X
 router.get('/', authenticateToken, getLeague);
 // /api/leagues/info?id=X
 router.get('/info', getLeagueInfo);

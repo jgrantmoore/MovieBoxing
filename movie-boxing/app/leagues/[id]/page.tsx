@@ -153,8 +153,8 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                         setLeagueStatus("Planning Stage");
                     } else if (data.EndDate && today > new Date(data.EndDate) && data.HasDrafted) {
                         setLeagueStatus("Finished");
-                    } else if (data.hasDrafted) {
-                        setLeagueStatus("In Progress");
+                    } else if (data.HasDrafted) {
+                        setLeagueStatus("League Started");
                     } else if (data.IsDrafting) {
                         setLeagueStatus("Draft in Progress");
                     } else {
