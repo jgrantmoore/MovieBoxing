@@ -4,6 +4,7 @@ import { use, useState, useEffect } from 'react';
 import Navbar from '@/app/components/Navbar';
 import { Trophy, Film, Scale, Zap, UserPlus } from 'lucide-react';
 import { useSession } from 'next-auth/react';
+import Link from 'next/link';
 
 export default function Profile({ params }: { params: Promise<{ id: string }> }) {
     const [loading, setLoading] = useState(true);
@@ -12,14 +13,6 @@ export default function Profile({ params }: { params: Promise<{ id: string }> })
     const [userInfo, setUserInfo] = useState<any>(null);
     const isOwner = session?.user?.name === id;
     const [stats, setStats] = useState<any[]>([]);
-
-    // Placeholder data - replace with your fetch results later
-    // const stats = [
-    //     { label: "Total Earnings", value: "$1.4B", icon: <Zap size={20} className="text-yellow-400" /> },
-    //     { label: "Leagues Won", value: "3", icon: <Trophy size={20} className="text-red-600" /> },
-    //     { label: "Total Trades", value: "88", icon: <Scale size={20} className="text-blue-500" /> },
-    //     { label: "Movies Picked", value: "42", icon: <Film size={20} className="text-purple-500" /> },
-    // ];
 
     useEffect(() => {
         if (userInfo != null) {
@@ -119,21 +112,21 @@ export default function Profile({ params }: { params: Promise<{ id: string }> })
 
                     <div className="space-y-4">
                         {/* Placeholder League Card */}
-                        {[1, 2, 3].map((league) => (
-                            <div key={league} className="group bg-neutral-900/30 border border-neutral-800/50 rounded-3xl p-6 flex flex-col md:flex-row justify-between items-center hover:bg-neutral-900/60 transition-all cursor-pointer">
+                        {userInfo?.RecentLeagues?.map((league: { LeagueId: string | number; LeagueName: string; PlayerRank: number; TotalPlayers: number }) => (
+                            <Link  href={`/leagues/${league.LeagueId}`} key={league.LeagueId} className="group bg-neutral-900/30 border border-neutral-800/50 rounded-3xl p-6 flex flex-col md:flex-row justify-between items-center hover:bg-neutral-900/60 transition-all">
                                 <div className="flex items-center gap-6">
                                     <div className="h-16 w-16 bg-neutral-800 rounded-2xl flex items-center justify-center font-black text-2xl italic group-hover:text-red-600 transition-colors">
-                                        L{league}
+                                        L{league.LeagueId}
                                     </div>
                                     <div>
-                                        <h3 className="text-2xl font-black uppercase italic tracking-tight">Summer Blockbuster {league}</h3>
-                                        <p className="text-xs font-mono text-neutral-500 uppercase font-bold mt-1">Rank: #2 / 12 Players</p>
+                                        <h3 className="text-2xl font-black uppercase italic tracking-tight">{league.LeagueName}</h3>
+                                        <p className="text-xs font-mono text-neutral-500 uppercase font-bold mt-1">Rank: #{league.PlayerRank} / {league.TotalPlayers} Players</p>
                                     </div>
                                 </div>
                                 <div className="mt-4 md:mt-0">
                                     <span className="text-neutral-500 font-black italic uppercase text-xs group-hover:text-white transition-colors">View Arena →</span>
                                 </div>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 </section>

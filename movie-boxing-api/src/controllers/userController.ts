@@ -102,50 +102,89 @@ export const getUserStats = async (req: Request, res: Response) => {
         return res.status(400).send("User ID is required.");
     }
 
+    const client = await pool.connect();
+
     try {
-        const query = `
+        // 1. Aggregated Global User Stats
+        const statsQuery = `
             SELECT 
-                u."UserId",
-                u."Username",
-                u."JoinDate",
-                u."DisplayName",
-                
-                -- Count teams (leagues joined)
+                u."UserId", u."Username", u."JoinDate", u."DisplayName",
                 (SELECT COUNT(*) FROM "Teams" WHERE "OwnerUserId" = u."UserId") AS "LeagueCount",
-                
-                -- Count total movies owned across all rosters
                 (SELECT COUNT(*) 
                  FROM "TeamMovies" tm 
                  JOIN "Teams" t ON tm."TeamId" = t."TeamId" 
                  WHERE t."OwnerUserId" = u."UserId") AS "MovieCount",
-                
-                -- Count league victories
                 (SELECT COUNT(*) FROM "Leagues" WHERE "LeagueWinnerId" = u."UserId") AS "LeaguesWon",
-                
-                -- Sum total box office (COALESCE handles users with 0 earnings)
                 COALESCE((
                     SELECT SUM(m."BoxOffice") 
                     FROM "Movies" m
-                    JOIN "TeamMovies" tm ON m."MovieId" = tm."MovieId"
+                    JOIN "TeamMovies" tm ON m."MovieId" = tm."MovieId" 
                     JOIN "Teams" t ON tm."TeamId" = t."TeamId"
                     WHERE t."OwnerUserId" = u."UserId"
                 ), 0) AS "TotalEarnings"
             FROM "Users" u
             WHERE u."UserId" = $1
-            GROUP BY u."UserId", u."Username", u."JoinDate", u."DisplayName"
         `;
 
-        const { rows } = await pool.query(query, [parseInt(targetUserId as string)]);
+        // 2. Recent Leagues with Rank and Activity Status
+        const recentLeaguesQuery = `
+            WITH LeagueRankings AS (
+                SELECT 
+                    t."TeamId",
+                    t."OwnerUserId",
+                    t."TeamName",
+                    l."LeagueId",
+                    l."LeagueName",
+                    l."StartDate",
+                    l."EndDate",
+                    -- Rank based on box office of STARTER movies
+                    RANK() OVER (
+                        PARTITION BY l."LeagueId" 
+                        ORDER BY COALESCE(SUM(m."BoxOffice"), 0) DESC
+                    ) as "PlayerRank",
+                    -- Total players in this specific league
+                    COUNT(*) OVER (PARTITION BY l."LeagueId") as "TotalPlayers"
+                FROM "Teams" t
+                JOIN "Leagues" l ON t."LeagueId" = l."LeagueId"
+                LEFT JOIN "TeamMovies" tm ON t."TeamId" = tm."TeamId" AND tm."IsStarting" = true
+                LEFT JOIN "Movies" m ON tm."MovieId" = m."MovieId"
+                GROUP BY t."TeamId", l."LeagueId", l."StartDate", l."EndDate"
+            )
+            SELECT 
+                "TeamId",
+                "TeamName",
+                "LeagueId",
+                "LeagueName",
+                "PlayerRank",
+                "TotalPlayers",
+                -- Active if current time is between start and end dates
+                (CURRENT_TIMESTAMP >= "StartDate" AND CURRENT_TIMESTAMP <= "EndDate") AS "LeagueActive"
+            FROM LeagueRankings
+            WHERE "OwnerUserId" = $1
+            ORDER BY "StartDate" DESC
+            LIMIT 5
+        `;
 
-        if (rows.length === 0) {
+        const statsRes = await client.query(statsQuery, [targetUserId]);
+
+        if (statsRes.rows.length === 0) {
             return res.status(404).send("User not found.");
         }
 
-        return res.status(200).json(rows[0]);
+        const recentRes = await client.query(recentLeaguesQuery, [targetUserId]);
+
+        const responseData = {
+            ...statsRes.rows[0],
+            RecentLeagues: recentRes.rows
+        };
+
+        return res.status(200).json(responseData);
 
     } catch (err) {
         console.error('Database query failed for getUserStats:', err);
         return res.status(500).send("Internal Server Error");
+    } finally {
+        client.release();
     }
 };
 
