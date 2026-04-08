@@ -1,6 +1,8 @@
-import 'dotenv/config'; // This must be the first line
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import leagueRoutes from './routes/leagueRoutes.js';
 import movieRoutes from './routes/movieRoutes.js';
 import userRoutes from './routes/userRoutes.js';
@@ -10,16 +12,37 @@ import draftRoutes from './routes/draftRoutes.js';
 import cron from 'node-cron';
 import { syncMovieData } from './services/movieService.js';
 
-
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Create the HTTP Server
+const httpServer = createServer(app);
+
+// Initialize Socket.io
+export const io = new Server(httpServer, {
+    cors: {
+        origin: "*", // Use your Next.js URL in production
+        methods: ["GET", "POST"]
+    }
+});
 
 app.use(cors());
 app.use(express.json());
 
-// Schedule the daily update
-cron.schedule('0 8 * * *', () => {
-    syncMovieData();
+// Socket.io Connection Logic
+io.on("connection", (socket) => {
+    console.log(`User connected: ${socket.id}`);
+    
+    socket.emit("test_event", "Hello from backend");
+
+    socket.on("joinDraft", (leagueId) => {
+        socket.join(`league_${leagueId}`);
+        console.log(`Socket ${socket.id} joined league ${leagueId}`);
+    });
+
+    socket.on("disconnect", () => {
+        console.log("User disconnected");
+    });
 });
 
 // Routes
@@ -30,9 +53,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/drafts', draftRoutes);
 
-// Health Check (Good for Railway monitoring)
+// Cron and Health Check
+cron.schedule('0 8 * * *', () => syncMovieData());
 app.get('/health', (req, res) => res.send('Movie Boxing API is Live!'));
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+httpServer.listen(port, () => {
+    console.log(`Server & Sockets running on port ${port}`);
 });

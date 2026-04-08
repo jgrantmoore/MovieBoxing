@@ -116,7 +116,7 @@ export const createTeam = async (req: Request, res: Response) => {
             return res.status(404).send("League not found.");
         }
 
-        const dbHash = leagueResult.rows[0].JoinPasswordHash || leagueResult.rows[0].joinpasswordhash;
+        const dbHash = leagueResult.rows[0].JoinPasswordHash;
 
         // 4. Verification Logic
         // If the league has a password (private), verify it
@@ -207,6 +207,8 @@ export const getUserTeamsAndPicks = async (req: Request, res: Response) => {
                 t."TeamName", 
                 t."LeagueId",
                 l."LeagueName",
+                l."StartingNumber",
+                l."BenchNumber",
                 tm."MovieId",
                 tm."OrderDrafted",
                 tm."IsStarting",
@@ -235,6 +237,8 @@ export const getUserTeamsAndPicks = async (req: Request, res: Response) => {
                     TeamName: row.TeamName || row.teamname,
                     LeagueId: row.LeagueId || row.leagueid,
                     LeagueName: row.LeagueName || row.leaguename,
+                    StartingNumber: row.StartingNumber || row.startingnumber,
+                    BenchNumber: row.BenchNumber || row.benchnumber,
                     Picks: []
                 });
             }
@@ -247,7 +251,8 @@ export const getUserTeamsAndPicks = async (req: Request, res: Response) => {
                     PosterUrl: row.PosterUrl || row.posterurl,
                     BoxOffice: row.BoxOffice || row.boxoffice,
                     OrderDrafted: row.OrderDrafted || row.orderdrafted,
-                    ReleaseDate: row.USReleaseDate || row.usreleasedate
+                    ReleaseDate: row.USReleaseDate || row.usreleasedate,
+                    IsStarting: row.IsStarting || row.isstarting
                 });
             }
         });
@@ -535,5 +540,51 @@ export const updateTeam = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(`Error updating team: ${error}`);
         return res.status(500).send("Internal server error");
+    }
+};
+
+/**
+ * Admin Endpoint: Clear a specific roster slot for a team.
+ * PROTECTED: Requires authenticateToken, requireAuth
+ * Body: { TeamId, OrderDrafted, LeagueId }
+ */
+export const clearRosterSlot = async (req: Request, res: Response) => {
+    const adminUserId = req.user!.userId; // Assuming middleware sets this
+    const { TeamId, OrderDrafted, LeagueId } = req.body;
+
+    if (!TeamId || !OrderDrafted || !LeagueId) {
+        return res.status(400).send("Missing required fields.");
+    }
+
+    const client = await pool.connect();
+
+    try {
+        // 1. Verify Requesting User is the League Admin
+        const adminCheck = await client.query(
+            'SELECT "AdminUserId" FROM "Leagues" WHERE "LeagueId" = $1',
+            [LeagueId]
+        );
+
+        if (adminCheck.rows[0]?.AdminUserId !== adminUserId) {
+            return res.status(403).send("Only the league admin can clear slots.");
+        }
+
+        // 2. Delete the record
+        const deleteResult = await client.query(
+            'DELETE FROM "TeamMovies" WHERE "TeamId" = $1 AND "OrderDrafted" = $2 AND "LeagueId" = $3',
+            [TeamId, OrderDrafted, LeagueId]
+        );
+
+        if (deleteResult.rowCount === 0) {
+            return res.status(404).send("No movie found in that slot.");
+        }
+
+        return res.status(200).json({ success: true, message: "Slot cleared successfully." });
+
+    } catch (error: any) {
+        console.error(`Clear Slot Error: ${error.message}`);
+        return res.status(500).send("Internal server error.");
+    } finally {
+        client.release();
     }
 };

@@ -159,8 +159,8 @@ export const getLeague = async (req: Request, res: Response) => {
         const query = `
             SELECT 
                 l.*, admin_u."DisplayName" AS "AdminName",
-                t."TeamId", t."TeamName", u."UserId" as "OwnerUserId", u."DisplayName" AS "OwnerName",
-                m."MovieId", m."Title" AS "MovieTitle", m."BoxOffice", m."PosterUrl", 
+                t."TeamId", t."TeamName", t."DraftOrder" ,u."UserId" as "OwnerUserId", u."DisplayName" AS "OwnerName",
+                m."MovieId", m."Title" AS "MovieTitle", m."BoxOffice", m."PosterUrl", m."TMDBId",
                 m."InternationalReleaseDate", p."OrderDrafted", p."DateAdded"
             FROM "Leagues" l
             JOIN "Users" admin_u ON l."AdminUserId" = admin_u."UserId" 
@@ -185,6 +185,7 @@ export const getLeague = async (req: Request, res: Response) => {
             IsDrafting: firstRow.IsDrafting || firstRow.isdrafting,
             isPrivate: (firstRow.JoinPasswordHash || firstRow.joinpasswordhash) != null,
             AdminName: firstRow.AdminName || firstRow.adminname,
+            DraftUsersTurn: firstRow.DraftUsersTurn || firstRow.draftusersturn,
             Rules: {
                 Starting: firstRow.StartingNumber || firstRow.startingnumber,
                 Bench: firstRow.BenchNumber || firstRow.benchnumber,
@@ -207,12 +208,18 @@ export const getLeague = async (req: Request, res: Response) => {
                     TeamName: row.TeamName || row.teamname,
                     OwnerUserId: row.OwnerUserId || row.owneruserid,
                     Owner: row.OwnerName || row.ownername,
+                    DraftOrder: row.DraftOrder || row.draftorder,
                     Picks: []
                 };
                 leagueData.Teams.push(team);
             }
             
             const rowMovieId = row.MovieId || row.movieid;
+
+            if (row.PosterUrl == "NULL") {
+                console.log("Poster URL is null for movie: " + row.MovieTitle);
+            }
+
             if (rowMovieId) {
                 team.Picks.push({
                     MovieId: rowMovieId,
@@ -220,7 +227,8 @@ export const getLeague = async (req: Request, res: Response) => {
                     BoxOffice: row.BoxOffice || row.boxoffice,
                     PosterUrl: row.PosterUrl || row.posterurl,
                     OrderDrafted: row.OrderDrafted || row.orderdrafted,
-                    ReleaseDate: row.InternationalReleaseDate || row.internationalreleasedate
+                    ReleaseDate: row.InternationalReleaseDate || row.internationalreleasedate,
+                    TMDBId: row.TMDBId || row.tmdbid
                 });
             }
         });

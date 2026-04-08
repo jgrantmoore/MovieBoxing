@@ -135,7 +135,7 @@ export default function Dashboard() {
                         ) : teams.length > 0 ? (
                             teams.map((team) => {
                                 const totalBoxOffice = team.Picks.reduce((sum: number, pick: any) => {
-                                    return pick.OrderDrafted <= STARTING_SLOTS ? sum + (pick.BoxOffice || 0) : sum;
+                                    return pick.OrderDrafted <= team.StartingNumber ? sum + (pick.BoxOffice || 0) : sum;
                                 }, 0);
 
                                 return (
@@ -164,7 +164,7 @@ export default function Dashboard() {
                                         </div>
 
                                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                                            {Array.from({ length: openBench.has(team.LeagueName) ? TOTAL_SLOTS : STARTING_SLOTS }).map((_, idx) => {
+                                            {Array.from({ length: openBench.has(team.LeagueName) ? (team.BenchNumber + team.StartingNumber) : team.StartingNumber }).map((_, idx) => {
                                                 const slot = idx + 1;
                                                 const pick = team.Picks.find((p: any) => p.OrderDrafted === slot);
                                                 return pick ? (
@@ -175,10 +175,10 @@ export default function Dashboard() {
                                                         posterUrl={pick.PosterUrl}
                                                         boxOffice={pick.BoxOffice}
                                                         releaseDate={pick.ReleaseDate}
-                                                        isBench={slot > STARTING_SLOTS}
+                                                        isBench={pick.IsStarting === false}
                                                     />
                                                 ) : (
-                                                    <MovieCard key={slot} title="Open Slot" isBench={slot > STARTING_SLOTS} />
+                                                    <MovieCard key={slot} title="Open Slot" isBench={slot > team.StartingNumber} />
                                                 );
                                             })}
                                         </div>

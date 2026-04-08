@@ -7,7 +7,8 @@ import {
     getTeamsByUserId,
     replaceMovie,
     swapMovies,
-    updateTeam
+    updateTeam,
+    clearRosterSlot
 } from '../controllers/teamControllers.js';
 import { authenticateToken, requireAuth } from '../middleware/auth.js';
 
@@ -29,5 +30,7 @@ router.post('/replace', authenticateToken, replaceMovie);
 router.post('/swap', authenticateToken, swapMovies);
 // PUT /api/teams/update?id=X
 router.put('/update', authenticateToken, requireAuth, updateTeam);
+// DELETE /api/teams/clear-slot?id=X
+router.delete('/clear-slot', authenticateToken, requireAuth, clearRosterSlot);
 
 export default router;

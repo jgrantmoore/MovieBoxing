@@ -463,7 +463,57 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
             setIsSubmitting(false);
         }
     };
-    
+
+    const handleAdminClearSlot = async () => {
+        if (!selectedAdminTeam || !selectedSlot) return;
+
+        const movieInSlot = selectedAdminTeam.Picks?.find((p: any) => p.OrderDrafted === selectedSlot);
+        if (!movieInSlot) return;
+
+        if (!confirm(`ADMIN OVERRIDE: Permanently remove "${movieInSlot.MovieTitle}" from ${selectedAdminTeam.TeamName}?`)) return;
+
+        setIsSubmitting(true);
+        setStatusMessage(null);
+
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/teams/clear-slot`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.accessToken}`
+                },
+                body: JSON.stringify({
+                    TeamId: selectedAdminTeam.TeamId,
+                    OrderDrafted: selectedSlot,
+                    LeagueId: leagueInfo.LeagueId
+                })
+            });
+
+            if (res.ok) {
+                setStatusMessage({ type: 'success', text: "Slot cleared successfully!" });
+
+                // Re-fetch the team data to update the UI without a full reload
+                const teamRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/teams/my-teams?id=${selectedAdminTeam.TeamId}`, {
+                    headers: { 'Authorization': `Bearer ${session?.accessToken}` }
+                });
+
+                if (teamRes.ok) {
+                    const updatedTeam = await teamRes.json();
+                    setSelectedAdminTeam(updatedTeam);
+                    // Also update the main teams list so the background UI stays in sync
+                    setTeams(prev => prev.map(t => t.TeamId === updatedTeam.TeamId ? updatedTeam : t));
+                }
+            } else {
+                const err = await res.text();
+                setStatusMessage({ type: 'error', text: err || "Failed to clear slot." });
+            }
+        } catch (error) {
+            setStatusMessage({ type: 'error', text: "Network error occurred." });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     // This ensures that every time leagueInfo updates, these numbers update too.
     const STARTING_SLOTS = leagueInfo?.Rules?.Starting || 5;
     const BENCH_SLOTS = leagueInfo?.Rules?.Bench || 3;
@@ -883,18 +933,30 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                                                 </button>
                                             ))}
                                         </div>
+
                                         {selectedSlot && (
-                                            <div className="mt-6">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2 block">Current Movie in Slot {selectedSlot}</p>
+                                            <div className="mt-6 space-y-3">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500 block">Current Movie in Slot {selectedSlot}</p>
                                                 <MovieCard
                                                     movieId={selectedAdminTeam.Picks?.find((p: any) => p.OrderDrafted === selectedSlot)?.MovieId || 0}
                                                     isBench={selectedSlot > STARTING_SLOTS}
-                                                    title={selectedAdminTeam.Picks?.find((p: any) => p.OrderDrafted === selectedSlot)?.Title || "Open Slot"}
+                                                    title={selectedAdminTeam.Picks?.find((p: any) => p.OrderDrafted === selectedSlot)?.MovieTitle || "Open Slot"}
                                                     posterUrl={selectedAdminTeam.Picks?.find((p: any) => p.OrderDrafted === selectedSlot)?.PosterUrl || ""}
                                                     boxOffice={selectedAdminTeam.Picks?.find((p: any) => p.OrderDrafted === selectedSlot)?.BoxOffice || 0}
                                                     releaseDate={selectedAdminTeam.Picks?.find((p: any) => p.OrderDrafted === selectedSlot)?.USReleaseDate || ""}
                                                     compact={true}
                                                 />
+
+                                                {/* NEW CLEAR SLOT BUTTON */}
+                                                {selectedAdminTeam.Picks?.find((p: any) => p.OrderDrafted === selectedSlot) && (
+                                                    <button
+                                                        onClick={handleAdminClearSlot}
+                                                        disabled={isSubmitting}
+                                                        className="w-full flex items-center justify-center gap-2 bg-red-600/10 hover:bg-red-600 border border-red-600/50 text-red-500 hover:text-white py-3 rounded-xl text-[10px] font-black uppercase transition-all disabled:opacity-50"
+                                                    >
+                                                        <Trash2 size={14} /> Clear This Slot
+                                                    </button>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -968,13 +1030,22 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                                 </button>
                                 {!(leagueInfo.HasDrafted) && !(leagueInfo.IsDrafting) && (
                                     <Link
-                                        href={`/leagues/${leagueInfo.LeagueId}/draft`}
+                                        href={`/leagues/${leagueInfo.LeagueId}/draft/start`}
                                         className="text-center text-md bg-white text-black px-5 py-2 rounded-2xl mt-3 font-black uppercase italic tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-xl"
                                     >
                                         Start Draft
                                     </Link>
                                 )}
+
                             </div>
+                        )}
+                        {!(leagueInfo.HasDrafted) && leagueInfo.IsDrafting && (
+                            <Link
+                                href={`/leagues/${leagueInfo.LeagueId}/draft`}
+                                className="text-center text-md bg-white text-black px-5 py-2 rounded-2xl mt-3 font-black uppercase italic tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-xl"
+                            >
+                                Go To Draft
+                            </Link>
                         )}
                     </div>
 
