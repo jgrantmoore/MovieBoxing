@@ -27,6 +27,8 @@ export default function RootLayout({
 
   return (
     <html lang="en" className="bg-slate-950">
+      <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1695673969939729"
+     crossOrigin="anonymous"></script>
       <SessionProvider>
           <body
             className={`${geistSans.variable} ${geistMono.variable} antialiased`}
