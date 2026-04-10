@@ -141,7 +141,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
-    maxAge: 60 * 60 * 24, // 1 hour to match your Azure JWT expiry
+    maxAge: 60 * 60 * 24, // 24hr
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

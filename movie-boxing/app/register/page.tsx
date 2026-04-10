@@ -65,7 +65,9 @@ export default function Register() {
 
             if (res.ok) {
                 // Assuming registration succeeds, redirect to login or dashboard
-                router.push('/login'); // Adjust route as needed
+                setTimeout(() => {
+                    router.push('/dashboard'); // Adjust route as needed
+                }, 800);
             } else if (res.status === 409) {
                 setError('Email or username already in use.');
             } else {

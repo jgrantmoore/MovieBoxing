@@ -42,8 +42,8 @@ export default function LoginPage() {
             const res = await signIn('credentials', {
                 username: formData.username,
                 password: formData.password,
-                callbackUrl: '/dashboard',
-                redirect: true, // Handle the redirect manually to show errors
+                callbackUrl: '',
+                redirect: false, // Handle the redirect manually to show errors
             });
 
             if (res?.error) {
@@ -51,7 +51,9 @@ export default function LoginPage() {
                 setError("Invalid username or password. Please try again.");
             } else {
                 // Success! NextAuth has set the session cookie.
-                router.refresh(); // Forces Next.js to re-check the session state
+                setTimeout(() => {
+                    router.push('/dashboard'); // Adjust route as needed
+                }, 800);
             }
         } catch (err) {
             setError('An unexpected error occurred. Please try again.');
