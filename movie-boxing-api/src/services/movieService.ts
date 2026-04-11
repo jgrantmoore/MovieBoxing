@@ -22,38 +22,61 @@ export async function syncMovieData() {
                 );
                 const movieData: any = await response.json();
 
-                // 1. Force the type to string immediately using a fallback
-                const usEntry = movieData.release_dates?.results?.find((r: any) => r.iso_3166_1 === 'US');
-                const theatrical = usEntry?.release_dates.find((rd: any) => rd.type === 3);
+                // TMDB nests the append_to_response inside the movie object
+                const releaseResults = movieData.release_dates?.results || [];
 
-                // This ensures usReleaseDate is NEVER undefined
-                const usReleaseDate: string = theatrical?.release_date
-                    || usEntry?.release_dates[0]?.release_date
-                    || movieData.release_date
-                    || new Date().toISOString();
+                // --- 1. INTERNATIONAL RELEASE CALCULATION ---
+                // Filter for Premiere (2) or Theatrical (3) globally
+                const internationalDates = releaseResults.flatMap((country: any) =>
+                    country.release_dates
+                        .filter((rd: any) => rd.type === 2 || rd.type === 3)
+                        .map((rd: any) => rd.release_date)
+                );
 
-                // 2. Normalize for comparison
-                // We use a safe fallback for the DB date as well
-                const dbDateRaw = movie.USReleaseDate || movie.usreleasedate || new Date(0).toISOString();
-                const dbDate = new Date(dbDateRaw).toISOString().split('T')[0];
-                const tmdbDate = new Date(usReleaseDate).toISOString().split('T')[0];
+                const internationalReleaseDateStr: string = internationalDates.length > 0
+                    ? internationalDates.sort((a: string, b: string) => new Date(a).getTime() - new Date(b).getTime())[0]
+                    : movieData.release_date || new Date().toISOString();
+
+                // --- 2. US RELEASE CALCULATION ---
+                const usEntry = releaseResults.find((r: any) => r.iso_3166_1 === 'US');
+                const usReleaseDateStr: string = 
+                    usEntry?.release_dates.find((rd: any) => rd.type === 3)?.release_date 
+                    || usEntry?.release_dates[0]?.release_date 
+                    || internationalReleaseDateStr;
+
+                // --- 3. CHANGE DETECTION ---
+                const dbUSDateRaw = movie.USReleaseDate || new Date(0).toISOString();
+                const dbINTLDateRaw = movie.InternationalReleaseDate || new Date(0).toISOString();
+                const dbUSDate = new Date(dbUSDateRaw).toISOString().split('T')[0];
+                const dbINTLDate = new Date(dbINTLDateRaw).toISOString().split('T')[0];
+                const tmdbUSDate = new Date(usReleaseDateStr).toISOString().split('T')[0];
+                const tmdbINTLDate = new Date(internationalReleaseDateStr).toISOString().split('T')[0];
 
                 const hasBoxOfficeChanged = Number(movieData.revenue) !== Number(movie.BoxOffice || movie.boxoffice);
-                const hasReleaseDateChanged = tmdbDate !== dbDate;
+                const hasUSReleaseDateChanged = tmdbUSDate !== dbUSDate;
+                const hasINTLReleaseDateChanged = tmdbINTLDate !== dbINTLDate;
 
-                if (hasBoxOfficeChanged || hasReleaseDateChanged) {
+                if (hasBoxOfficeChanged || hasUSReleaseDateChanged || hasINTLReleaseDateChanged) {
+                    // Fixed the trailing comma/duplicate column in the SQL query
                     const query = `
-                UPDATE "Movies"
-                SET "BoxOffice" = $1, "USReleaseDate" = $2
-                WHERE "TMDBId" = $3
-            `;
+                        UPDATE "Movies"
+                        SET "BoxOffice" = $1, 
+                            "USReleaseDate" = $2,
+                            "InternationalReleaseDate" = $3,
+                            "PosterURL" = $4
+                        WHERE "TMDBId" = $5
+                    `;
 
-                    // Now usReleaseDate is guaranteed to be a string
+                    const newRevenue = (movieData.revenue == null) ? 0 : movieData.revenue;
+
                     await pool.query(query, [
-                        movieData.revenue,
-                        new Date(usReleaseDate),
+                        newRevenue,
+                        new Date(usReleaseDateStr), // DB driver handles Date objects
+                        new Date(internationalReleaseDateStr),
+                        movie.poster_path,
                         movie.TMDBId || movie.tmdbid
                     ]);
+                    
                     console.log(`Cron Updated: ${movie.Title || movie.title}`);
                 }
             } catch (err) {
