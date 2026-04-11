@@ -44,7 +44,7 @@ export default function Profile({ params }: { params: Promise<{ id: string }> })
                     const data = await res.json();
                     setUserInfo(data);
                     setStats([
-                        { label: "Total Earnings", value: `$${formatCurrency(data.TotalEarnings)}`, icon: <Zap size={20} className="text-yellow-400" /> },
+                        { label: "Total Earnings", value: `${formatCurrency(data.TotalEarnings)}`, icon: <Zap size={20} className="text-yellow-400" /> },
                         { label: "Leagues Won", value: data.LeaguesWon, icon: <Trophy size={20} className="text-red-600" /> },
                         { label: "Total Trades", value: "xx", icon: <Scale size={20} className="text-blue-500" /> }, // Placeholder
                         { label: "Movies Picked", value: data.MovieCount, icon: <Film size={20} className="text-purple-500" /> },
