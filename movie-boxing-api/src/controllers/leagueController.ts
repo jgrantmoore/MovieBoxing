@@ -259,7 +259,7 @@ export const getLeaderboard = async (req: Request, res: Response) => {
                     COUNT(CASE WHEN m."InternationalReleaseDate" <= NOW() AND tm."IsStarting" = 1 THEN 1 END) as "ReleasedCount"
                 FROM "Teams" t
                 JOIN "Users" u ON t."OwnerUserId" = u."UserId"
-                LEFT JOIN "TeamMovies" tm ON t."TeamId" = tm."TeamId" AND tm."IsStarting" = 1
+                LEFT JOIN "TeamMovies" tm ON t."TeamId" = tm."TeamId" AND tm."IsStarting" = true
                 LEFT JOIN "Movies" m ON tm."MovieId" = m."MovieId"
                 WHERE t."LeagueId" = $1
                 GROUP BY t."TeamId", t."TeamName", u."DisplayName"
