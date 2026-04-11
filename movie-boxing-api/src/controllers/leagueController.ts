@@ -256,7 +256,8 @@ export const getLeaderboard = async (req: Request, res: Response) => {
                     t."TeamName",
                     u."DisplayName" as "OwnerName",
                     SUM(COALESCE(m."BoxOffice", 0)) as "TotalRevenue",
-                    COUNT(CASE WHEN m."InternationalReleaseDate" <= NOW() AND tm."IsStarting" = 1 THEN 1 END) as "ReleasedCount"
+                    -- Fix: Changed tm."IsStarting" = 1 to tm."IsStarting" = true
+                    COUNT(CASE WHEN m."InternationalReleaseDate" <= NOW() AND tm."IsStarting" = true THEN 1 END) as "ReleasedCount"
                 FROM "Teams" t
                 JOIN "Users" u ON t."OwnerUserId" = u."UserId"
                 LEFT JOIN "TeamMovies" tm ON t."TeamId" = tm."TeamId" AND tm."IsStarting" = true
@@ -271,7 +272,8 @@ export const getLeaderboard = async (req: Request, res: Response) => {
                     ROW_NUMBER() OVER (PARTITION BY tm."TeamId" ORDER BY m."BoxOffice" DESC) as "Rank"
                 FROM "TeamMovies" tm
                 JOIN "Movies" m ON tm."MovieId" = m."MovieId"
-                WHERE tm."IsStarting" = 1 
+                -- Fix: Changed tm."IsStarting" = 1 to tm."IsStarting" = true
+                WHERE tm."IsStarting" = true 
             )
             SELECT 
                 tt.*,
