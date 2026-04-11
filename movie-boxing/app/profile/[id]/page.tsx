@@ -20,6 +20,12 @@ export default function Profile({ params }: { params: Promise<{ id: string }> })
         }
     }, [userInfo]);
 
+    const formatCurrency = (rev: number) => {
+        if (rev >= 1000000000) return `$${(rev / 1000000000).toFixed(3)}B`;
+        if (rev >= 1000000) return `$${(rev / 1000000).toFixed(1)}M`;
+        return `$${(rev / 1000).toFixed(0)}K`;
+    };
+
     useEffect(() => {
         document.title = "Movie Boxing - Profile";
 
@@ -38,7 +44,7 @@ export default function Profile({ params }: { params: Promise<{ id: string }> })
                     const data = await res.json();
                     setUserInfo(data);
                     setStats([
-                        { label: "Total Earnings", value: `$${data.TotalEarnings.toLocaleString()}`, icon: <Zap size={20} className="text-yellow-400" /> },
+                        { label: "Total Earnings", value: `$${formatCurrency(data.TotalEarnings.toLocaleString())}`, icon: <Zap size={20} className="text-yellow-400" /> },
                         { label: "Leagues Won", value: data.LeaguesWon, icon: <Trophy size={20} className="text-red-600" /> },
                         { label: "Total Trades", value: "xx", icon: <Scale size={20} className="text-blue-500" /> }, // Placeholder
                         { label: "Movies Picked", value: data.MovieCount, icon: <Film size={20} className="text-purple-500" /> },
