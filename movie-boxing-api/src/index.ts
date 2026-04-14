@@ -11,6 +11,7 @@ import teamRoutes from './routes/teamRoutes.js';
 import draftRoutes from './routes/draftRoutes.js';
 import cron from 'node-cron';
 import { syncMovieData } from './services/movieService.js';
+import { snapshotEndingLeagues } from './services/leagueService.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -54,7 +55,14 @@ app.use('/api/teams', teamRoutes);
 app.use('/api/drafts', draftRoutes);
 
 // Cron and Health Check
-cron.schedule('0 8 * * *', () => syncMovieData());
+
+const cronOptions = {
+  scheduled: true,
+  timezone: "America/New_York"
+};
+
+cron.schedule('0 1 * * *', () => syncMovieData());
+cron.schedule('0 2 * * *', () => snapshotEndingLeagues());
 app.get('/health', (req, res) => res.send('Movie Boxing API is Live!'));
 
 httpServer.listen(port, () => {
