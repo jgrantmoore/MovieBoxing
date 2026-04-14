@@ -73,7 +73,7 @@ export async function syncMovieData() {
                         newRevenue,
                         new Date(usReleaseDateStr), // DB driver handles Date objects
                         new Date(internationalReleaseDateStr),
-                        movie.poster_path,
+                        movieData.poster_path,
                         movie.TMDBId || movie.tmdbid
                     ]);
                     
