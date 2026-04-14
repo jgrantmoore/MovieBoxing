@@ -65,6 +65,7 @@ export default function Register() {
 
             if (res.ok) {
                 // Assuming registration succeeds, redirect to login or dashboard
+                // Slight delay to avoid race conditions with session cookie setting in NextAuth
                 setTimeout(() => {
                     router.push('/dashboard'); // Adjust route as needed
                 }, 800);

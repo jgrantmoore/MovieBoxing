@@ -22,12 +22,6 @@ export default function LoginPage() {
         document.title = "Movie Boxing - Login";
     }, []);
 
-    useEffect(() => {
-        // Just a "Ping" to wake up the Azure Function while the user is typing
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/movies`, { method: 'GET' })
-            .catch(() => { }); // We don't care if it fails, we just want to wake it up
-    }, []);
-
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
