@@ -3,18 +3,18 @@
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/app/components/Navbar';
-import { 
-    Terminal, 
-    RefreshCw, 
-    Database, 
-    ShieldAlert, 
-    CheckCircle2, 
+import {
+    Terminal,
+    RefreshCw,
+    Database,
+    ShieldAlert,
+    CheckCircle2,
     AlertCircle,
     Activity
 } from 'lucide-react';
 
 // Hardcoded authorized email - Change this to your actual email
-const ADMIN_EMAIL = "jgrantmoore17@gmail.com"; 
+const ADMIN_EMAIL = "jgrantmoore17@gmail.com";
 
 export default function AdminDashboard() {
     const { data: session, status } = useSession();
@@ -23,7 +23,7 @@ export default function AdminDashboard() {
 
     // 1. Protection Guard
     if (status === "loading") return <div className="min-h-screen bg-slate-950" />;
-    
+
     if (!session || session.user?.email !== ADMIN_EMAIL) {
         return (
             <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
@@ -40,11 +40,10 @@ export default function AdminDashboard() {
     const triggerApiAction = async (actionName: string, endpoint: string) => {
         setLoadingAction(actionName);
         setMessage(null);
-        
+
         try {
-            const response = await fetch(endpoint, { 
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/movies/local-box-office-update`, {
+                headers: { 'Authorization': `Bearer ${session.accessToken}` }
             });
             const data = await response.json();
 
@@ -63,7 +62,7 @@ export default function AdminDashboard() {
     return (
         <div className="min-h-screen bg-slate-950 text-white">
             <Navbar />
-            
+
             <main className="max-w-6xl mx-auto px-6 py-12">
                 <div className="flex items-center justify-between mb-12">
                     <div>
@@ -81,9 +80,8 @@ export default function AdminDashboard() {
 
                 {/* Status Feedback */}
                 {message && (
-                    <div className={`mb-8 p-4 rounded-2xl border flex items-center gap-3 ${
-                        message.type === 'success' ? 'bg-green-500/10 border-green-500/50 text-green-500' : 'bg-red-500/10 border-red-500/50 text-red-500'
-                    }`}>
+                    <div className={`mb-8 p-4 rounded-2xl border flex items-center gap-3 ${message.type === 'success' ? 'bg-green-500/10 border-green-500/50 text-green-500' : 'bg-red-500/10 border-red-500/50 text-red-500'
+                        }`}>
                         {message.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
                         <p className="font-bold text-sm uppercase italic">{message.text}</p>
                     </div>
@@ -95,8 +93,8 @@ export default function AdminDashboard() {
                         <Database size={24} className="text-neutral-500 mb-6" />
                         <h2 className="text-xl font-black italic uppercase mb-2">Manual Data Sync</h2>
                         <p className="text-neutral-500 text-sm mb-8">Force refresh box office numbers from TMDB and update all active league standings.</p>
-                        
-                        <button 
+
+                        <button
                             onClick={() => triggerApiAction("Data Sync", "/api/movies/local-box-office-update")}
                             disabled={loadingAction !== null}
                             className="w-full bg-white hover:bg-neutral-200 disabled:opacity-50 py-4 rounded-2xl flex items-center justify-center gap-3 transition-all"
@@ -117,8 +115,8 @@ export default function AdminDashboard() {
                         <ShieldAlert size={24} className="text-neutral-500 mb-6" />
                         <h2 className="text-xl font-black italic uppercase mb-2">Cleanup Services</h2>
                         <p className="text-neutral-500 text-sm mb-8">Remove expired join invitations and clear system cache logs older than 30 days.</p>
-                        
-                        <button 
+
+                        <button
                             onClick={() => triggerApiAction("System Cleanup", "/api/admin/cleanup")}
                             disabled={loadingAction !== null}
                             className="w-full bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 py-4 rounded-2xl flex items-center justify-center gap-3 transition-all border border-neutral-700"
