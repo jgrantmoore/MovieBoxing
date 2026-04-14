@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 // Hardcoded authorized email - Change this to your actual email
-const ADMIN_EMAIL = "grantmoore@example.com"; 
+const ADMIN_EMAIL = "jgrantmoore17@gmail.com"; 
 
 export default function AdminDashboard() {
     const { data: session, status } = useSession();
@@ -97,7 +97,7 @@ export default function AdminDashboard() {
                         <p className="text-neutral-500 text-sm mb-8">Force refresh box office numbers from TMDB and update all active league standings.</p>
                         
                         <button 
-                            onClick={() => triggerApiAction("Data Sync", "/api/admin/sync-box-office")}
+                            onClick={() => triggerApiAction("Data Sync", "/api/movies/local-box-office-update")}
                             disabled={loadingAction !== null}
                             className="w-full bg-white hover:bg-neutral-200 disabled:opacity-50 py-4 rounded-2xl flex items-center justify-center gap-3 transition-all"
                         >
