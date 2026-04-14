@@ -7,6 +7,7 @@ import MovieHeader from '../components/MovieHeader';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Eye, EyeOff } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
 export default function LoginPage() {
     const [formData, setFormData] = useState({
@@ -17,10 +18,17 @@ export default function LoginPage() {
     const [error, setError] = useState('');
     const router = useRouter();
     const [showPassword, setShowPassword] = useState(false);
+    const { data: session } = useSession();
 
     useEffect(() => {
         document.title = "Movie Boxing - Login";
     }, []);
+
+    useEffect(() => {
+        if (session?.accessToken) {
+            router.push('/dashboard');
+        }
+    }, [session, router]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -43,11 +51,6 @@ export default function LoginPage() {
             if (res?.error) {
                 // This captures errors returned from your [...nextauth] authorize function
                 setError("Invalid username or password. Please try again.");
-            } else {
-                // Success! NextAuth has set the session cookie.
-                setTimeout(() => {
-                    router.push('/dashboard'); // Adjust route as needed
-                }, 800);
             }
         } catch (err) {
             setError('An unexpected error occurred. Please try again.');

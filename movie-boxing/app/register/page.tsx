@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Navbar from '../components/Navbar';
 import { signIn } from 'next-auth/react';
 import Footer from '../components/Footer';
+import { useSession } from 'next-auth/react';
 
 const REGISTER_URL = process.env.NEXT_PUBLIC_REGISTER_URL; // Adjust if the endpoint differs
 
@@ -19,10 +20,17 @@ export default function Register() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const router = useRouter();
+    const { data: session } = useSession();
 
     useEffect(() => {
         document.title = "Movie Boxing - Register";
     }, []);
+
+    useEffect(() => {
+        if (session?.accessToken) {
+            router.push('/dashboard');
+        }
+    }, [session, router]);
 
     useEffect(() => {
         // Just a "Ping" to wake up the Azure Function while the user is typing
@@ -64,11 +72,7 @@ export default function Register() {
             });
 
             if (res.ok) {
-                // Assuming registration succeeds, redirect to login or dashboard
-                // Slight delay to avoid race conditions with session cookie setting in NextAuth
-                setTimeout(() => {
-                    router.push('/dashboard'); // Adjust route as needed
-                }, 800);
+                //Success!
             } else if (res.status === 409) {
                 setError('Email or username already in use.');
             } else {
