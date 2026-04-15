@@ -7,10 +7,38 @@ import {
     KeyboardAvoidingView,
     Platform,
     ActivityIndicator,
-    Alert
+    Alert,
+    Image,
+    ScrollView
 } from 'react-native';
 import { useAuth } from '../../src/context/AuthContext';
-import { Mail, Lock, Eye, EyeOff, Trophy } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, ChevronRight } from 'lucide-react-native';
+import { useRouter, Stack } from 'expo-router';
+
+// Local Assets for Logo
+const BoxingGloveL = require('../../assets/images/boxingloveL.png');
+const BoxingGloveR = require('../../assets/images/boxingloveR.png');
+
+export const HeaderLogo = () => {
+    return (
+        <View className="flex-row items-center justify-center mb-4">
+            <Image 
+                source={BoxingGloveL} 
+                style={{ width: 35, height: 35 }} 
+                resizeMode="contain" 
+            />
+            <Text className="text-2xl font-black tracking-tighter uppercase italic text-white ml-2">
+                Movie<Text className="text-red-600">Boxing</Text>
+            </Text>
+            <Image 
+                source={BoxingGloveR} 
+                style={{ width: 35, height: 35 }} 
+                resizeMode="contain" 
+                className="ml-2"
+            />
+        </View>
+    );
+};
 
 export default function Login() {
     const [email, setEmail] = useState('');
@@ -18,6 +46,7 @@ export default function Login() {
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { login } = useAuth();
+    const router = useRouter();
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -31,33 +60,26 @@ export default function Login() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    username: email, // Matches web formData 'username' field
+                    username: email,
                     password: password
                 }),
             });
 
             const data = await response.json();
 
-            console.log("RAW API RESPONSE:", JSON.stringify(data, null, 2));
-
             if (response.ok && data.token) {
-                // We map the keys from your RAW API RESPONSE exactly
                 const userPayload = {
-                    id: data.userId,           // "1"
-                    name: data.displayName,    // "Grant"
-                    username: data.username,   // "grant"
-                    email: data.email          // "jgrantmoore17@gmail.com"
+                    id: data.userId,
+                    name: data.displayName,
+                    username: data.username,
+                    email: data.email
                 };
-
-                console.log("Passing to login:", userPayload);
-
                 await login(data.token, userPayload);
             } else {
                 Alert.alert("Ref Stopped the Fight", data.message || "Invalid credentials");
             }
         } catch (err) {
-            console.error(err);
-            Alert.alert("Connection Error", "The arena is unreachable. Check your network.");
+            Alert.alert("Connection Error", "The arena is unreachable.");
         } finally {
             setIsSubmitting(false);
         }
@@ -68,70 +90,84 @@ export default function Login() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             className="flex-1 bg-slate-950"
         >
-            <View className="flex-1 justify-center px-8">
-                {/* Branding */}
-                <View className="items-center mb-12">
-                    <View className="bg-red-600 p-4 rounded-3xl rotate-3 shadow-lg shadow-red-600/40">
-                        <Trophy color="white" size={40} />
-                    </View>
-                    <Text className="text-4xl font-black uppercase italic tracking-tighter text-white mt-6">
-                        MOVIE <Text className="text-red-600">BOXING</Text>
+            <Stack.Screen options={{ headerShown: false }} />
+            
+            <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}>
+                
+                {/* Logo & Header Section */}
+                <View className="mb-10 items-center">
+                    <HeaderLogo />
+                    <Text className="text-5xl font-black uppercase italic tracking-tighter text-white">
+                        LOGIN
                     </Text>
-                    <Text className="text-neutral-500 font-mono text-[10px] uppercase tracking-widest mt-2">
-                        The Ultimate Fantasy Movie League
-                    </Text>
+                    <View className="h-1 w-12 bg-red-600 mt-2 self-center rounded-full" />
                 </View>
 
-                {/* Form */}
-                <View className="space-y-4">
-                    <View className="bg-neutral-900 border border-neutral-800 rounded-2xl flex-row items-center px-4 py-1">
-                        <Mail color="#525252" size={20} />
-                        <TextInput
-                            placeholder="Email Address"
-                            placeholderTextColor="#525252"
-                            className="flex-1 h-12 ml-3 text-white font-bold"
-                            value={email}
-                            onChangeText={setEmail}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                        />
-                    </View>
+                {/* Login Card Container */}
+                <View className="bg-neutral-900/50 border-2 border-neutral-800 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
 
-                    <View className="bg-neutral-900 border border-neutral-800 rounded-2xl flex-row items-center px-4 py-1 mt-4">
-                        <Lock color="#525252" size={20} />
-                        <TextInput
-                            placeholder="Password"
-                            placeholderTextColor="#525252"
-                            className="flex-1 h-12 ml-3 text-white font-bold"
-                            value={password}
-                            onChangeText={setPassword}
-                            secureTextEntry={!showPassword}
-                        />
-                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                            {showPassword ? <EyeOff color="#525252" size={20} /> : <Eye color="#525252" size={20} />}
+                    <View className="space-y-5">
+                        {/* Email Input */}
+                        <View>
+                            <Text className="text-neutral-500 text-[9px] font-black uppercase mb-2 ml-1 tracking-widest">Credentials</Text>
+                            <View className="bg-black border border-neutral-800 focus:border-red-600/50 rounded-2xl flex-row items-center px-4">
+                                <Mail color="#525252" size={18} />
+                                <TextInput
+                                    placeholder="Username or Email"
+                                    placeholderTextColor="#404040"
+                                    className="flex-1 h-14 ml-3 text-white font-bold"
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    autoCapitalize="none"
+                                />
+                            </View>
+                        </View>
+
+                        {/* Password Input */}
+                        <View className="mt-4">
+                            <Text className="text-neutral-500 text-[9px] font-black uppercase mb-2 ml-1 tracking-widest">Security</Text>
+                            <View className="bg-black border border-neutral-800 focus:border-red-600/50 rounded-2xl flex-row items-center px-4">
+                                <Lock color="#525252" size={18} />
+                                <TextInput
+                                    placeholder="Password"
+                                    placeholderTextColor="#404040"
+                                    className="flex-1 h-14 ml-3 text-white font-bold"
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    secureTextEntry={!showPassword}
+                                />
+                                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                    {showPassword ? <EyeOff color="#525252" size={20} /> : <Eye color="#525252" size={20} />}
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        {/* Login Button */}
+                        <TouchableOpacity
+                            onPress={handleLogin}
+                            disabled={isSubmitting}
+                            activeOpacity={0.8}
+                            className={`mt-8 py-5 rounded-2xl flex-row items-center justify-center shadow-lg ${isSubmitting ? 'bg-neutral-800' : 'bg-red-600 shadow-red-900/40'}`}
+                        >
+                            {isSubmitting ? (
+                                <ActivityIndicator color="white" />
+                            ) : (
+                                <>
+                                    <Text className="text-white font-black uppercase italic text-lg mr-2">Enter the Ring</Text>
+                                    <ChevronRight color="white" size={20} strokeWidth={3} />
+                                </>
+                            )}
                         </TouchableOpacity>
                     </View>
-
-                    <TouchableOpacity
-                        onPress={handleLogin}
-                        disabled={isSubmitting}
-                        activeOpacity={0.8}
-                        className={`mt-8 py-4 rounded-2xl items-center shadow-xl ${isSubmitting ? 'bg-neutral-800' : 'bg-red-600 shadow-red-600/20'}`}
-                    >
-                        {isSubmitting ? (
-                            <ActivityIndicator color="white" />
-                        ) : (
-                            <Text className="text-white font-black uppercase italic text-lg">Enter the Ring</Text>
-                        )}
-                    </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity className="mt-8 items-center">
+                {/* Footer Link */}
+                <TouchableOpacity onPress={() => router.push('/register')} className="mt-8 items-center">
                     <Text className="text-neutral-500 font-bold text-xs uppercase tracking-tighter">
-                        Don't have an account? <Text className="text-red-600 underline">Sign Up</Text>
+                        NEW TO THE LEAGUE? <Text className="text-red-600 font-black italic underline">CREATE ACCOUNT</Text>
                     </Text>
                 </TouchableOpacity>
-            </View>
+            </ScrollView>
         </KeyboardAvoidingView>
     );
 }

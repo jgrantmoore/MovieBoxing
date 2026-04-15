@@ -65,6 +65,12 @@ export default function TabLayout() {
         options={{
           href: null, // <--- Makes it not show in tab bar
         }}
+      />
+      <Tabs.Screen
+        name="profile/settings"
+        options={{
+          href: null, // <--- Makes it not show in tab bar
+        }}
       />  
     </Tabs>
   );

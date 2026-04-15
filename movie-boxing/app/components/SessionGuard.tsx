@@ -8,41 +8,36 @@ export const SessionGuard = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
 
+  const isPublicPage = pathname === '/login' || pathname === '/register' || pathname === '/';
+
   useEffect(() => {
-    // 1. If NextAuth is still figuring out who the user is, DO NOTHING.
+    // If loading, wait for status.
     if (status === 'loading') return;
 
-    // 2. Define public routes that don't need a session.
-    const isPublicPage = pathname === '/login' || pathname === '/register';
-
-    // 3. Only kick them to login if:
-    //    - They are confirmed unauthenticated
-    //    - They aren't already on a public page
+    // Redirect to login if not authenticated and trying to access a protected route
     if (status === 'unauthenticated' && !isPublicPage) {
-      console.log("Guard: Unauthenticated user on protected route. Redirecting...");
-      router.replace('/login'); // Use .replace so they can't "back button" into a loop
+      router.replace('/login');
     }
-    
-    // 4. Optional: If they ARE logged in but try to go to /login, send them to dashboard
-    if (status === 'authenticated' && isPublicPage) {
-       router.replace('/dashboard');
-    }
+  }, [status, pathname, isPublicPage, router]);
 
-  }, [status, pathname, router]);
-
-  // IMPORTANT: Do not render the children if we are in the middle of a redirect.
-  // This prevents the "Flash of Protected Content" before the kickback.
+  // 1. Loading State: Keep it consistent with your app's branding
   if (status === 'loading') {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="text-red-600 font-black italic animate-pulse">VERIFYING AUTH...</div>
+        <div className="flex flex-col items-center">
+             <div className="h-10 w-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-4" />
+             <div className="text-red-600 font-black uppercase italic tracking-widest animate-pulse">
+                Syncing Profile...
+             </div>
+        </div>
       </div>
     );
   }
 
-  // If unauthenticated and on a protected page, render nothing while the useEffect redirects
-  if (status === 'unauthenticated' && pathname !== '/login') {
-      return null; 
+  // 2. Auth Check: If middleware missed it or client-side status is trailing, 
+  // hide the children until the redirect in useEffect kicks in.
+  if (status === 'unauthenticated' && !isPublicPage) {
+    return null;
   }
 
   return <>{children}</>;

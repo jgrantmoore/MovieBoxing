@@ -7,7 +7,8 @@ import { signIn } from 'next-auth/react';
 import Footer from '../components/Footer';
 import { useSession } from 'next-auth/react';
 
-const REGISTER_URL = process.env.NEXT_PUBLIC_REGISTER_URL; // Adjust if the endpoint differs
+const REGISTER_URL = process.env.NEXT_PUBLIC_REGISTER_URL;
+const CHECK_USERNAME_URL = `${process.env.NEXT_PUBLIC_API_URL}/auth/check-username`;
 
 export default function Register() {
     const [formData, setFormData] = useState({
@@ -17,26 +18,65 @@ export default function Register() {
         password: '',
         confirmPassword: ''
     });
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    // Username Check States
+    const [usernameStatus, setUsernameStatus] = useState<{
+        loading: boolean;
+        available: boolean | null;
+        message: string;
+    }>({ loading: false, available: null, message: '' });
+
     const router = useRouter();
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
 
     useEffect(() => {
         document.title = "Movie Boxing - Register";
     }, []);
 
     useEffect(() => {
-        if (session?.accessToken) {
-            router.push('/dashboard');
+        if (status === 'authenticated') {
+            router.replace('/dashboard'); // Use replace to keep history clean
         }
-    }, [session, router]);
+    }, [status, router]);
 
+    // --- DEBOUNCED USERNAME CHECK ---
     useEffect(() => {
-        // Just a "Ping" to wake up the Azure Function while the user is typing
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/movies`, { method: 'GET' })
-            .catch(() => { }); // We don't care if it fails, we just want to wake it up
-    }, []);
+        const checkUsernameAvailability = async () => {
+            const user = formData.username.trim();
+            if (user.length < 3) {
+                setUsernameStatus({ loading: false, available: null, message: '' });
+                return;
+            }
+
+            setUsernameStatus(prev => ({ ...prev, loading: true }));
+
+            try {
+                const res = await fetch(CHECK_USERNAME_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user })
+                });
+                const data = await res.json();
+
+                setUsernameStatus({
+                    loading: false,
+                    available: data.available,
+                    message: data.message
+                });
+            } catch (err) {
+                setUsernameStatus({ loading: false, available: null, message: 'Check failed' });
+            }
+        };
+
+        const timeoutId = setTimeout(() => {
+            checkUsernameAvailability();
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(timeoutId);
+    }, [formData.username]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -45,22 +85,21 @@ export default function Register() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        setLoading(true);
+
+        if (usernameStatus.available === false) {
+            setError(usernameStatus.message);
+            return;
+        }
 
         if (formData.password !== formData.confirmPassword) {
             setError('Passwords do not match');
-            setLoading(false);
             return;
         }
 
-        if (!REGISTER_URL) {
-            setError('Registration service is not configured');
-            setLoading(false);
-            return;
-        }
+        setLoading(true);
 
         try {
-            const res = await fetch(REGISTER_URL, {
+            const res = await fetch(REGISTER_URL!, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -72,15 +111,13 @@ export default function Register() {
             });
 
             if (res.ok) {
-                //Success!
-            } else if (res.status === 409) {
-                setError('Email or username already in use.');
+                router.replace('/login?registered=true');
             } else {
-                const data = await res.json();
-                setError(data.message || 'Registration failed');
+                const text = await res.text();
+                setError(text || 'Registration failed');
             }
         } catch (err) {
-            setError('An error occurred. Please try again. ' + (err instanceof Error ? err.message : ''));
+            setError('An error occurred. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -102,112 +139,107 @@ export default function Register() {
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label htmlFor="name" className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400">
-                                        Display Name
-                                    </label>
+                                    <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400">Name</label>
                                     <input
                                         type="text"
-                                        id="name"
                                         name="name"
                                         value={formData.name}
                                         onChange={handleChange}
                                         required
                                         placeholder="John"
-                                        className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors placeholder:text-neutral-600"
+                                        className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors"
                                     />
                                 </div>
                                 <div>
-                                    <label htmlFor="username" className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400">
-                                        Username
-                                    </label>
+                                    <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400">Username</label>
                                     <input
                                         type="text"
-                                        id="username"
                                         name="username"
                                         value={formData.username}
                                         onChange={handleChange}
                                         required
-                                        placeholder="johndoe123"
-                                        className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors placeholder:text-neutral-600"
+                                        autoCapitalize="none"
+                                        placeholder="fighter123"
+                                        className={`w-full px-4 py-3 bg-black border rounded-xl text-white focus:outline-none transition-colors ${usernameStatus.available === true ? 'border-green-500' :
+                                            usernameStatus.available === false ? 'border-red-600' : 'border-neutral-700'
+                                            }`}
                                     />
+                                    {/* Availability Sub-text */}
+                                    {formData.username.length >= 3 && (
+                                        <p className={`text-[10px] mt-1 font-bold italic uppercase tracking-tight ${usernameStatus.available ? 'text-green-500' : 'text-red-600'
+                                            }`}>
+                                            {usernameStatus.loading ? 'Checking...' : usernameStatus.message}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
 
+                            {/* Email */}
                             <div>
-                                <label htmlFor="email" className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400">
-                                    Email Address
-                                </label>
+                                <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400">Email Address</label>
                                 <input
                                     type="email"
-                                    id="email"
                                     name="email"
                                     value={formData.email}
                                     onChange={handleChange}
                                     required
+                                    autoCapitalize="none"
                                     placeholder="john@example.com"
-                                    className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors placeholder:text-neutral-600"
+                                    className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors"
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="password" className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400">
-                                        Password
-                                    </label>
-                                    <input
-                                        type="password"
-                                        id="password"
-                                        name="password"
-                                        value={formData.password}
-                                        onChange={handleChange}
-                                        required
-                                        placeholder="••••••••"
-                                        className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors placeholder:text-neutral-600"
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="confirmPassword" className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400">
-                                        Confirm
-                                    </label>
-                                    <input
-                                        type="password"
-                                        id="confirmPassword"
-                                        name="confirmPassword"
-                                        value={formData.confirmPassword}
-                                        onChange={handleChange}
-                                        required
-                                        placeholder="••••••••"
-                                        className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors placeholder:text-neutral-600"
-                                    />
-                                </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400">Password</label>
+                                <input
+                                    type="password"
+                                    name="password"
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                    required
+                                    className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors"
+                                />
+                            </div>
+
+
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400">Confirm</label>
+                                <input
+                                    type="password"
+                                    name="confirmPassword"
+                                    value={formData.confirmPassword}
+                                    onChange={handleChange}
+                                    required
+                                    className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors"
+                                />
                             </div>
 
                             {error && (
                                 <div className="bg-red-500/10 border border-red-500/50 p-3 rounded-lg">
-                                    <p className="text-red-500 text-sm font-medium text-center">{error}</p>
+                                    <p className="text-red-500 text-xs font-bold uppercase italic text-center">{error}</p>
                                 </div>
                             )}
 
                             <button
                                 type="submit"
-                                disabled={loading}
-                                className="w-full bg-white text-black font-black uppercase tracking-widest py-4 rounded-xl hover:bg-neutral-200 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+                                disabled={loading || usernameStatus.available === false}
+                                className="w-full bg-red-600 text-white font-black uppercase tracking-widest py-4 rounded-xl hover:bg-red-700 active:scale-[0.98] transition-all disabled:opacity-50 mt-4"
                             >
-                                {loading ? 'Creating Account...' : 'Join the League'}
+                                {loading ? 'Registering...' : 'Step Into The Ring'}
                             </button>
                         </form>
 
                         <div className="text-center mt-8 pt-6 border-t border-neutral-800">
-                            <button
-                                onClick={() => signIn('google', { callbackUrl: '/leagues' })}
-                                className="w-full bg-white text-black font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-neutral-200 transition-all mb-4"
+                            {/* <button
+                                onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
+                                className="w-full bg-white text-black font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-neutral-200 transition-all mb-4"
                             >
                                 <img src="/google-icon.svg" className="w-5 h-5" alt="Google" />
-                                Sign up with Google
-                            </button>
+                                <span className="uppercase tracking-tighter">Sign up with Google</span>
+                            </button> */}
                             <p className="text-neutral-400 text-sm">
-                                Already have an account?{' '}
-                                <a href="/login" className="text-white font-bold underline decoration-neutral-700 underline-offset-4 hover:decoration-white transition-all">
+                                Already registered?{' '}
+                                <a href="/login" className="text-white font-bold underline decoration-red-600 underline-offset-4 hover:decoration-white transition-all">
                                     Login
                                 </a>
                             </p>

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import { Trophy, Film, Scale, Zap, UserPlus, ChevronRight } from 'lucide-react-native';
+import { Trophy, Film, Scale, Zap, UserPlus, ChevronRight, Settings } from 'lucide-react-native';
 import { apiRequest } from '../api/client';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import { TopPerformer } from '../types/league';
 import { MovieCard } from './MovieCard';
-
+``
 export default function ProfileView({ userId }: { userId: string | number }) {
     const [loading, setLoading] = useState(true);
     const [userInfo, setUserInfo] = useState<any>(null);
@@ -14,6 +14,7 @@ export default function ProfileView({ userId }: { userId: string | number }) {
     const [stats, setStats] = useState<any[]>([]);
     const { session, loading: authLoading } = useAuth(); // Destructure authLoading
     const router = useRouter();
+    const isOwnProfile = String(session?.user?.id) === String(userId);
 
     useEffect(() => {
         setLoading(true);
@@ -61,12 +62,29 @@ export default function ProfileView({ userId }: { userId: string | number }) {
             <View className="px-6 py-12">
                 {/* Header */}
                 <View className="border-b border-white/10 pb-10 mb-10">
-                    <Text className="text-4xl font-black text-white uppercase italic tracking-tighter leading-none">
-                        {userInfo?.DisplayName || "Unknown Fighter"}
-                    </Text>
-                    <Text className="text-sm font-black text-red-600 uppercase italic tracking-widest mt-2">
-                        {userInfo?.Username ? `@${userInfo.Username}` : ""}
-                    </Text>
+                    <View className="flex-row items-center justify-between">
+                        <View>
+                            <Text className="text-4xl font-black text-white uppercase italic tracking-tighter leading-none">
+                                {userInfo?.DisplayName || "Unknown Fighter"}
+                            </Text>
+                            <Text className="text-sm font-black text-red-600 uppercase italic tracking-widest mt-2">
+                                {userInfo?.Username ? `@${userInfo.Username}` : ""}
+                            </Text>
+                        </View>
+
+                        {/* Settings Button - Only for current user */}
+                        {isOwnProfile && (
+                            <TouchableOpacity
+                                onPress={() => router.push('/profile/settings')}
+                                className="bg-neutral-900 p-3 rounded-2xl border border-neutral-800"
+                            >
+                                <Settings size={20} color="white" />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+
+
 
                     {/* Only show invite if not looking at self (Logic depends on your Auth storage) */}
                     {session?.user?.id !== userId && (

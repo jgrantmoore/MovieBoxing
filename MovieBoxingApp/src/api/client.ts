@@ -7,7 +7,7 @@ const BASE_URL = 'https://api.movieboxing.com/api';
  * It defaults to 'any' to maintain backward compatibility.
  */
 export const apiRequest = async <T = any>(
-  endpoint: string, 
+  endpoint: string,
   options: RequestInit = {} // Using the built-in Fetch type instead of 'any'
 ): Promise<T> => {
   const token = await SecureStore.getItemAsync('userToken');
@@ -18,11 +18,11 @@ export const apiRequest = async <T = any>(
     ...(options.headers || {}),
   };
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, { 
-    ...options, 
-    headers 
+  const response = await fetch(`${BASE_URL}${endpoint}`, {
+    ...options,
+    headers
   });
-  
+
   // Handle 401 Unauthorized
   if (response.status === 401) {
     await SecureStore.deleteItemAsync('userToken');
@@ -31,8 +31,14 @@ export const apiRequest = async <T = any>(
 
   // Handle non-200 responses if you want them to throw
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Request failed with status ${response.status}`);
+    // 1. Try to get the error message from the body
+    // Your backend sends plain text (e.g., "Email or username already in use.")
+    const errorText = await response.text();
+
+    // 2. Throw the actual message from the backend
+    const error = new Error(errorText || `Request failed with status ${response.status}`);
+    (error as any).status = response.status;
+    throw error;
   }
 
   return response.json() as Promise<T>;

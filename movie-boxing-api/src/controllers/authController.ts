@@ -186,3 +186,57 @@ export const syncGoogleUser = async (req: Request, res: Response) => {
         return res.status(500).send("Internal Server Error during Google Sync");
     }
 };
+
+/**
+ * Check if a username is already taken.
+ * Useful for real-time validation on the registration screen.
+ */
+export const checkUsername = async (req: Request, res: Response) => {
+    const { username } = req.body;
+
+    // 1. Basic Presence Check
+    if (!username) {
+        return res.status(400).json({ available: false, message: "Username is required." });
+    }
+
+    // 2. Mirror your registration sanitization
+    const parsedUsername = username.trim().toLowerCase();
+
+    // 3. Mirror your registration validation rules
+    if (parsedUsername.length < 3 || parsedUsername.length > 50) {
+        return res.status(200).json({ 
+            available: false, 
+            message: "Username must be between 3 and 50 characters." 
+        });
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(parsedUsername)) {
+        return res.status(200).json({ 
+            available: false, 
+            message: "Username can only contain letters, numbers, and underscores." 
+        });
+    }
+
+    try {
+        // 4. Query Postgres for the username
+        const checkQuery = `SELECT "UserId" FROM "Users" WHERE "Username" = $1`;
+        const { rows } = await pool.query(checkQuery, [parsedUsername]);
+
+        if (rows.length > 0) {
+            return res.status(200).json({ 
+                available: false, 
+                message: "This fighter name is already taken." 
+            });
+        }
+
+        // 5. Success - Username is clear
+        return res.status(200).json({ 
+            available: true, 
+            message: "Username is available!" 
+        });
+
+    } catch (err) {
+        console.error('Username check failed:', err);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+};

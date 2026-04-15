@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import MovieHeader from '../components/MovieHeader';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, ChevronRight } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
 export default function LoginPage() {
@@ -16,19 +15,25 @@ export default function LoginPage() {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const router = useRouter();
     const [showPassword, setShowPassword] = useState(false);
-    const { data: session } = useSession();
+
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const { data: session, status } = useSession(); // Add status here
+
+    // Check if user was just redirected from a successful registration
+    const justRegistered = searchParams.get('registered');
 
     useEffect(() => {
         document.title = "Movie Boxing - Login";
     }, []);
 
     useEffect(() => {
-        if (session?.accessToken) {
-            router.push('/dashboard');
+        // Only redirect once NextAuth confirms the session is fully loaded and active
+        if (status === 'authenticated') {
+            router.replace('/dashboard'); // Use replace to avoid polluting history
         }
-    }, [session, router]);
+    }, [status, router]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -40,24 +45,30 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            // We use NextAuth's signIn to manage the session cookie automatically
             const res = await signIn('credentials', {
-                username: formData.username,
+                username: formData.username.trim().toLowerCase(),
                 password: formData.password,
                 callbackUrl: '',
-                redirect: false, // Handle the redirect manually to show errors
+                redirect: false,
             });
 
             if (res?.error) {
-                // This captures errors returned from your [...nextauth] authorize function
-                setError("Invalid username or password. Please try again.");
+                setError("Ref stopped the fight: Invalid username or password.");
             }
         } catch (err) {
-            setError('An unexpected error occurred. Please try again.');
+            setError('The arena is unreachable. Please try again.');
         } finally {
             setLoading(false);
         }
     };
+
+    if (status === 'loading') {
+        return (
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+                <div className="h-8 w-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+        );
+    }
 
     return (
         <div className="relative min-h-screen bg-slate-950 text-white selection:bg-red-400 selection:text-black font-sans">
@@ -67,14 +78,23 @@ export default function LoginPage() {
 
             <main className="min-h-screen flex items-center justify-center p-4">
                 <div className="max-w-md w-full">
-                    <div className="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 hover:border-red-600/50 transition-colors group rounded-3xl border-2 p-6 md:p-8">
-                        <h1 className="text-4xl font-black uppercase italic tracking-tighter mb-8 text-center text-white">
-                            Login
-                        </h1>
+                    <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-2 border-slate-800 hover:border-red-600/50 transition-all group rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
+                        <div className="mb-8 text-center">
+                            <h1 className="text-5xl font-black uppercase italic tracking-tighter text-white">
+                                Login
+                            </h1>
+                            <div className="h-1 w-12 bg-red-600 mt-2 mx-auto rounded-full" />
+
+                            {justRegistered && !error && (
+                                <p className="mt-4 text-green-500 text-xs font-bold uppercase tracking-widest italic">
+                                    Account Created. Step into the ring.
+                                </p>
+                            )}
+                        </div>
 
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div>
-                                <label htmlFor="username" className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400">
+                                <label htmlFor="username" className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400 ml-1">
                                     Username / Email
                                 </label>
                                 <input
@@ -84,68 +104,64 @@ export default function LoginPage() {
                                     value={formData.username}
                                     onChange={handleChange}
                                     required
+                                    autoCapitalize="none"
                                     placeholder="Enter your credentials"
-                                    className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors placeholder:text-neutral-600"
+                                    className="w-full px-4 py-4 bg-black border border-neutral-800 rounded-2xl text-white focus:outline-none focus:border-red-600/50 transition-colors placeholder:text-neutral-700 font-bold"
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <label htmlFor="password" className="block text-xs font-bold uppercase tracking-widest text-neutral-400">
+                            <div>
+                                <label htmlFor="password" className="block text-xs font-bold uppercase tracking-widest mb-2 text-neutral-400 ml-1">
                                     Password
                                 </label>
-                                <div className="relative group">
+                                <div className="relative">
                                     <input
-                                        type={showPassword ? "text" : "password"} // Dynamic type
+                                        type={showPassword ? "text" : "password"}
                                         id="password"
                                         name="password"
                                         value={formData.password}
                                         onChange={handleChange}
                                         required
                                         placeholder="••••••••"
-                                        className="w-full px-4 py-3 bg-black border border-neutral-700 rounded-xl text-white focus:outline-none focus:border-white transition-colors placeholder:text-neutral-600 pr-12" // pr-12 makes room for the button
+                                        className="w-full px-4 py-4 bg-black border border-neutral-800 rounded-2xl text-white focus:outline-none focus:border-red-600/50 transition-colors placeholder:text-neutral-700 pr-12 font-bold"
                                     />
                                     <button
-                                        type="button" // Important: prevents form submission
+                                        type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-neutral-500 hover:text-white transition-colors focus:outline-none"
-                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-600 hover:text-white transition-colors focus:outline-none"
                                     >
-                                        {showPassword ? (
-                                            <EyeOff size={18} strokeWidth={2.5} />
-                                        ) : (
-                                            <Eye size={18} strokeWidth={2.5} />
-                                        )}
+                                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                     </button>
                                 </div>
                             </div>
 
                             {error && (
-                                <div className="bg-red-500/10 border border-red-500/50 p-3 rounded-lg">
-                                    <p className="text-red-500 text-sm font-medium text-center">{error}</p>
+                                <div className="bg-red-600/10 border border-red-600/30 p-4 rounded-2xl">
+                                    <p className="text-red-600 text-xs font-bold uppercase italic text-center leading-tight">
+                                        {error}
+                                    </p>
                                 </div>
                             )}
 
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full bg-white text-black font-black uppercase tracking-widest py-4 rounded-xl hover:bg-neutral-200 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+                                className="w-full bg-red-600 text-white font-black uppercase italic tracking-widest py-5 rounded-2xl hover:bg-red-700 active:scale-[0.98] transition-all disabled:opacity-50 shadow-lg shadow-red-900/20 flex items-center justify-center gap-2"
                             >
-                                {loading ? 'Authenticating...' : 'Sign In'}
+                                {loading ? 'Authenticating...' : (
+                                    <>
+                                        Enter the Ring
+                                        <ChevronRight size={20} strokeWidth={3} />
+                                    </>
+                                )}
                             </button>
                         </form>
 
-                        <div className="text-center mt-8 pt-6 border-t border-neutral-800">
-                            <button
-                                onClick={() => signIn('google', { callbackUrl: '/leagues' })}
-                                className="w-full bg-white text-black font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-neutral-200 transition-all mb-4"
-                            >
-                                <img src="/google-icon.svg" className="w-5 h-5" alt="Google" />
-                                Sign in with Google
-                            </button>
-                            <p className="text-neutral-400 text-sm">
+                        <div className="text-center mt-8 pt-8 border-t border-neutral-900">
+                            <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest">
                                 New to the league?{' '}
-                                <a href="/register" className="text-white font-bold underline decoration-neutral-700 underline-offset-4 hover:decoration-white transition-all">
-                                    Create an Account
+                                <a href="/register" className="text-red-600 font-black italic underline decoration-red-600/30 underline-offset-4 hover:decoration-red-600 transition-all ml-1">
+                                    Register Now
                                 </a>
                             </p>
                         </div>
