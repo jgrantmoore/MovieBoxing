@@ -33,9 +33,9 @@ export default function Leaderboard({ leagueId }: { leagueId: number }) {
     }, [leagueId]);
 
     const formatCurrency = (rev: number) => {
-        if (rev >= 1000000000) return `$${(rev / 1000000000).toFixed(2)}B`;
+        if (rev >= 1000000000) return `$${(rev / 1000000000).toFixed(3)}B`;
         if (rev >= 1000000) return `$${(rev / 1000000).toFixed(1)}M`;
-        return `$${(rev / 1000).toFixed(0)}K`;
+        return `$${(rev / 1000).toFixed(2)}K`;
     };
 
     if (loading) return (
