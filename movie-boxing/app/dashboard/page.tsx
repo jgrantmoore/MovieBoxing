@@ -65,6 +65,16 @@ export default function Dashboard() {
         setOpenBench(next);
     };
 
+    const formatCurrency = (amount: number) => {
+        if (amount <= 999999999) {
+            return `$${(amount / 1000000).toFixed(2)}M`;
+        } else if (amount >= 999999999) {
+            return `$${(amount / 1000000000).toFixed(3)}B`;
+        } else {
+            return `$${(amount / 1000).toFixed(2)}K`;
+        }
+    };
+
     return (
         <SessionGuard>
             <div className="min-h-screen bg-slate-950 text-white font-sans selection:bg-red-500">
@@ -152,7 +162,7 @@ export default function Dashboard() {
                                             <div className="flex items-center gap-8 w-full md:w-auto justify-between border-t border-neutral-800 pt-6 md:border-none md:pt-0">
                                                 <div className="text-right">
                                                     <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-widest">Team Total</p>
-                                                    <p className="text-3xl font-mono font-black">${(totalBoxOffice / 1000000).toFixed(1)}M</p>
+                                                    <p className="text-3xl font-mono font-black">{formatCurrency(totalBoxOffice)}</p>
                                                 </div>
                                                 <button
                                                     onClick={() => toggleBench(team.LeagueName)}

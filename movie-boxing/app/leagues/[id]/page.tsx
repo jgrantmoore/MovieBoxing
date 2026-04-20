@@ -519,6 +519,16 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
     const BENCH_SLOTS = leagueInfo?.Rules?.Bench || 3;
     const TOTAL_SLOTS = STARTING_SLOTS + BENCH_SLOTS;
 
+    const formatCurrency = (amount: number) => {
+        if (amount <= 999999999) {
+            return `$${(amount / 1000000).toFixed(2)}M`;
+        } else if (amount >= 999999999) {
+            return `$${(amount / 1000000000).toFixed(3)}B`;
+        } else {
+            return `$${(amount / 1000).toFixed(3)}K`;
+        }
+    };
+
     if (showLoading) {
         return (
             <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col">
@@ -1228,7 +1238,7 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                                         <div className="flex items-center gap-8">
                                             <div className="text-right">
                                                 <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-widest">Current Score</p>
-                                                <p className="text-3xl font-mono font-black">${(totalBoxOffice / 1000000).toFixed(1)}M</p>
+                                                <p className="text-3xl font-mono font-black">{formatCurrency(totalBoxOffice)}</p>
                                             </div>
                                             <button
                                                 onClick={() => {
