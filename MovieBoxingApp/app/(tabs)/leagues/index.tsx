@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { ScrollView, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { MovieCard } from '../../../src/components/MovieCard';
 import { apiRequest } from '../../../src/api/client';
 import { Team } from '../../../src/types/league';
@@ -92,13 +92,16 @@ export default function Leagues() {
                                 <View key={team.TeamId} className="mb-10">
                                     <View className="flex-row justify-between items-center mb-4">
                                         <View className="flex-1">
-                                            <Link href={`/leagues/${team.LeagueId}`} asChild>
-                                                <TouchableOpacity>
-                                                    <Text className="text-2xl font-black uppercase italic text-white">
-                                                        {team.LeagueName}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            </Link>
+                                            <TouchableOpacity
+                                                onPress={() => router.push({
+                                                    pathname: "/(tabs)/leagues/[id]",
+                                                    params: { id: team.LeagueId }
+                                                })}
+                                            >
+                                                <Text className="text-2xl font-black uppercase italic text-white">
+                                                    {team.LeagueName}
+                                                </Text>
+                                            </TouchableOpacity>
                                             <Text className="text-neutral-500 font-mono text-[10px] uppercase">
                                                 {team.TeamName}
                                             </Text>
@@ -142,7 +145,7 @@ export default function Leagues() {
                                         className="mt-4 py-2 border-b border-neutral-900 items-center"
                                     >
                                         <Text className="text-neutral-500 text-[10px] font-black uppercase tracking-[2px]">
-                                            {isBenchOpen ? '↑ Close Bench' : '↓ View Bench Slots'}
+                                            {isBenchOpen ? '← Close Bench' : '→ View Bench Slots'}
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
@@ -160,6 +163,6 @@ export default function Leagues() {
                     )}
                 </View>
             </View>
-        </ScrollView>
+        </ScrollView >
     );
 }

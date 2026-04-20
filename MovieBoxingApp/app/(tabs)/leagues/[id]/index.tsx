@@ -44,7 +44,7 @@ export default function LeagueDetails() {
     };
 
     const handleBack = () => {
-        router.replace('/leagues');
+        router.back();
     };
 
     const userTeam = useMemo(() => teams.find(t => t.OwnerUserId === 1), [teams]);

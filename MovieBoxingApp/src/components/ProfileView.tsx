@@ -14,13 +14,27 @@ export default function ProfileView({ userId }: { userId: string | number }) {
     const [stats, setStats] = useState<any[]>([]);
     const { session, loading: authLoading } = useAuth(); // Destructure authLoading
     const router = useRouter();
-    const isOwnProfile = String(session?.user?.id) === String(userId);
+    const isOwnProfile = String(session?.user?.userId) === String(userId);
 
     useEffect(() => {
-        setLoading(true);
-        fetchProfile();
-        fetchTopMovies();
-        setLoading(false);
+        const loadData = async () => {
+            setLoading(true); // 1. Start the loading screen
+            try {
+                // 2. Run both fetches and wait for them to finish
+                // Using Promise.all is faster because they run in parallel
+                await Promise.all([
+                    fetchProfile(),
+                    fetchTopMovies()
+                ]);
+            } catch (err) {
+                console.error("Data load failed", err);
+            } finally {
+                // 3. Only now turn off the loading screen
+                setLoading(false);
+            }
+        };
+
+        loadData();
     }, [userId]);
 
     const fetchProfile = async () => {
@@ -87,7 +101,7 @@ export default function ProfileView({ userId }: { userId: string | number }) {
 
 
                     {/* Only show invite if not looking at self (Logic depends on your Auth storage) */}
-                    {session?.user?.id !== userId && (
+                    {session?.user?.userId !== userId && (
                         <TouchableOpacity className="mt-8 flex-row items-center justify-center bg-white py-4 rounded-2xl">
                             <UserPlus size={20} color="black" strokeWidth={3} />
                             <Text className="ml-3 text-black font-black uppercase italic tracking-widest">Invite To League</Text>

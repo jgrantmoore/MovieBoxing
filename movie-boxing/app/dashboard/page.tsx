@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { SessionGuard } from '../components/SessionGuard';
 import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 
 export default function Dashboard() {
     const { data: session } = useSession();
@@ -45,8 +46,10 @@ export default function Dashboard() {
                 if (movieRes.ok) setTopMovies(await movieRes.json());
 
                 if (teamRes.status === 401 || movieRes.status === 401) {
-                    // Token might be expired or invalid, handle logout or token refresh here if needed
-                    router.replace('/login');
+                    // Dispatch the custom event we made earlier for the SessionGuard to hear
+                    window.dispatchEvent(new Event('movieboxing-unauthorized'));
+                    // OR call signOut directly
+                    signOut({ callbackUrl: '/login' });
                 }
 
             } catch (err) {

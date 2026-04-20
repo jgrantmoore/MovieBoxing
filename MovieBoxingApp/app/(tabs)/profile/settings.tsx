@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { useAuth } from '@/src/context/AuthContext';
-import { LogOut, ChevronRight, Shield, User, Bell } from 'lucide-react-native';
+import { LogOut, ChevronRight, Shield, User, Mail } from 'lucide-react-native';
 
 export default function AccountSettings() {
     const { logout, session } = useAuth();
@@ -26,8 +26,8 @@ export default function AccountSettings() {
         );
     };
 
-    const SettingItem = ({ icon, label, sublabel }: any) => (
-        <TouchableOpacity className="flex-row items-center justify-between py-4 border-b border-neutral-900">
+    const SettingItem = ({ icon, label, sublabel, onPress }: any) => (
+        <TouchableOpacity className="flex-row items-center justify-between py-4 border-b border-neutral-900" onPress={onPress}>
             <View className="flex-row items-center gap-x-4">
                 <View className="bg-neutral-900 p-2 rounded-xl">{icon}</View>
                 <View>
@@ -49,33 +49,40 @@ export default function AccountSettings() {
             }} />
 
             <ScrollView className="p-6">
-                {/* <Text className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-4">Account</Text>
+
+                <Text className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-4">Account</Text>
                 <View className="bg-neutral-900/30 border border-neutral-800 rounded-[2rem] px-6 mb-8">
                     <SettingItem
                         icon={<User size={18} color="#dc2626" />}
                         label="Edit Profile"
                         sublabel={session?.user?.email}
+                        onPress={() => router.push('/profile/edit')}
                     />
+                    <TouchableOpacity
+                        onPress={handleLogout}
+                        className="flex-row items-center justify-center bg-red-600/10 border border-red-600/20 py-5 rounded-2xl my-3"
+                    >
+                        <LogOut size={20} color="#dc2626" strokeWidth={3} />
+                        <Text className="ml-3 text-red-600 font-black uppercase italic tracking-widest">
+                            Log Out of Your Account
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                <Text className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-4">MovieBoxing</Text>
+                <View className="bg-neutral-900/30 border border-neutral-800 rounded-[2rem] px-6 mb-8">
+
                     <SettingItem
                         icon={<Shield size={18} color="#dc2626" />}
-                        label="Privacy & Security"
+                        label="Privacy Policy"
+                        onPress={() => router.push('/privacy')}
                     />
                     <SettingItem
-                        icon={<Bell size={18} color="#dc2626" />}
-                        label="Notifications"
+                        icon={<Mail size={18} color="#dc2626" />}
+                        label="Contact Us"
+                        onPress={() => router.push('/contact')}
                     />
-                </View> */}
-
-                <Text className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-4">Account</Text>
-                <TouchableOpacity
-                    onPress={handleLogout}
-                    className="flex-row items-center justify-center bg-red-600/10 border border-red-600/20 py-5 rounded-2xl"
-                >
-                    <LogOut size={20} color="#dc2626" strokeWidth={3} />
-                    <Text className="ml-3 text-red-600 font-black uppercase italic tracking-widest">
-                        Log Out of Your Account
-                    </Text>
-                </TouchableOpacity>
+                </View>
 
                 <View className="mt-8 items-center">
                     <Text className="text-neutral-700 font-mono text-[8px] uppercase tracking-widest">

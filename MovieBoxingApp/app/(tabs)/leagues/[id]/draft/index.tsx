@@ -30,7 +30,7 @@ export default function DraftArena() {
     const flatListRef = useRef<FlatList>(null);
     const { session } = useAuth();
 
-    const currentUserId = session?.user?.id;
+    const currentUserId = session?.user?.userId;
 
     const [movies, setMovies] = useState<any[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
