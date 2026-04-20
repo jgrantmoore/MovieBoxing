@@ -99,19 +99,35 @@ export default function Register() {
         setLoading(true);
 
         try {
+            // 1. Register the User
             const res = await fetch(REGISTER_URL!, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: formData.name,
-                    username: formData.username,
-                    email: formData.email,
+                    username: formData.username.trim().toLowerCase(),
+                    email: formData.email.trim().toLowerCase(),
                     password: formData.password
                 })
             });
 
             if (res.ok) {
-                router.replace('/login?registered=true');
+                // 2. SUCCESS! Now perform a silent login using NextAuth
+                // Since our Register backend now returns the user object,
+                // but NextAuth's signIn expects credentials, we just 
+                // pass the password they just typed.
+                const loginRes = await signIn('credentials', {
+                    username: formData.username.trim().toLowerCase(),
+                    password: formData.password,
+                    redirect: false, // Handle redirect manually for total control
+                });
+
+                if (loginRes?.ok) {
+                    router.replace('/dashboard');
+                } else {
+                    // Fallback if silent login fails for some weird reason
+                    router.replace('/login?registered=true');
+                }
             } else {
                 const text = await res.text();
                 setError(text || 'Registration failed');

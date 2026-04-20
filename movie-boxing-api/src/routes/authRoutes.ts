@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { login, register, syncGoogleUser, checkUsername } from '../controllers/authController.js';
+import { login, register, syncGoogleUser, checkUsername, logout } from '../controllers/authController.js';
 
 const router = Router();
 
@@ -14,5 +14,7 @@ router.post('/register', register);
 router.post('/sync-google', syncGoogleUser);
 // POST /api/auth/check-username
 router.post('/check-username', checkUsername);
+// POST /api/auth/logout
+router.post('/logout', logout);
 
 export default router;

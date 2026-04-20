@@ -46,15 +46,17 @@ function LoginFormContent() {
             const res = await signIn('credentials', {
                 username: formData.username.trim().toLowerCase(),
                 password: formData.password,
-                callbackUrl: '',
-                redirect: false,
+                // Letting NextAuth handle the redirect is usually smoother
+                callbackUrl: '/dashboard',
+                redirect: true,
             });
 
             if (res?.error) {
-                setError("Ref stopped the fight: Invalid username or password.");
+                // NextAuth returns specific error types; this is a good generic catch
+                setError("Ref stopped the fight: Invalid credentials.");
             }
         } catch (err) {
-            setError('The arena is unreachable. Please try again.');
+            setError('The arena is unreachable. Check your connection.');
         } finally {
             setLoading(false);
         }

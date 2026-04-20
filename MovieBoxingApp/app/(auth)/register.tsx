@@ -13,6 +13,7 @@ import {
 import { useRouter, Stack } from 'expo-router';
 import { ChevronRight, AlertCircle } from 'lucide-react-native';
 import { apiRequest } from '@/src/api/client';
+import { useAuth } from '../../src/context/AuthContext';
 
 // --- LOCAL ASSETS ---
 const BoxingGloveL = require('../../assets/images/boxingloveL.png');
@@ -22,18 +23,18 @@ const BoxingGloveR = require('../../assets/images/boxingloveR.png');
 export const HeaderLogo = () => {
     return (
         <View className="flex-row items-center justify-center mb-4">
-            <Image 
-                source={BoxingGloveL} 
-                style={{ width: 35, height: 35 }} 
-                resizeMode="contain" 
+            <Image
+                source={BoxingGloveL}
+                style={{ width: 35, height: 35 }}
+                resizeMode="contain"
             />
             <Text className="text-2xl font-black tracking-tighter uppercase italic text-white ml-2">
                 Movie<Text className="text-red-600">Boxing</Text>
             </Text>
-            <Image 
-                source={BoxingGloveR} 
-                style={{ width: 35, height: 35 }} 
-                resizeMode="contain" 
+            <Image
+                source={BoxingGloveR}
+                style={{ width: 35, height: 35 }}
+                resizeMode="contain"
                 className="ml-2"
             />
         </View>
@@ -57,6 +58,8 @@ export default function Register() {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
+    const { login } = useAuth();
+
     const handleRegister = async () => {
         const { name, username, email, password, confirmPassword } = formData;
         setError(null);
@@ -78,40 +81,55 @@ export default function Register() {
         }
 
         setLoading(true);
-
         try {
-            // 2. API Call
-            // Note: apiRequest should throw an error containing the response string if status is 409/400
-            await apiRequest('/auth/register', {
+            // 2. Call Register API
+            const response = await fetch('https://api.movieboxing.com/api/auth/register', {
                 method: 'POST',
-                body: JSON.stringify({ 
-                    name, 
-                    username: username.trim().toLowerCase(), 
-                    email: email.trim().toLowerCase(), 
-                    password 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    username: username.trim().toLowerCase(),
+                    email: email.trim().toLowerCase(),
+                    password
                 })
             });
 
-            // 3. Success
-            router.replace('/login');
-            
+            const data = await response.json();
+
+            if (response.ok && data.accessToken) {
+                // 3. Automatically log them in!
+                const userPayload = {
+                    userId: data.userId,
+                    displayName: data.displayName,
+                    username: data.username,
+                    email: data.email
+                };
+
+                await login(data.accessToken, data.refreshToken, userPayload);
+
+                // Note: AuthContext state update usually triggers the router 
+                // but you can replace it manually if needed:
+                // router.replace('/home');
+            } else {
+                setError(data.message || "The ref called a foul.");
+            }
+
         } catch (err: any) {
-            // 4. Error Handling (Specifically catching the 409 "Already in use" message)
             console.error("Registration Error:", err);
-            setError(err.message || "The ref called a foul. Try again later.");
+            setError("The arena is unreachable.");
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             className="flex-1 bg-slate-950"
         >
             <Stack.Screen options={{ headerShown: false }} />
-            
-            <ScrollView 
+
+            <ScrollView
                 contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}
                 keyboardShouldPersistTaps="handled"
             >

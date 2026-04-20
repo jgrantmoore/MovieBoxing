@@ -22,18 +22,18 @@ const BoxingGloveR = require('../../assets/images/boxingloveR.png');
 export const HeaderLogo = () => {
     return (
         <View className="flex-row items-center justify-center mb-4">
-            <Image 
-                source={BoxingGloveL} 
-                style={{ width: 35, height: 35 }} 
-                resizeMode="contain" 
+            <Image
+                source={BoxingGloveL}
+                style={{ width: 35, height: 35 }}
+                resizeMode="contain"
             />
             <Text className="text-2xl font-black tracking-tighter uppercase italic text-white ml-2">
                 Movie<Text className="text-red-600">Boxing</Text>
             </Text>
-            <Image 
-                source={BoxingGloveR} 
-                style={{ width: 35, height: 35 }} 
-                resizeMode="contain" 
+            <Image
+                source={BoxingGloveR}
+                style={{ width: 35, height: 35 }}
+                resizeMode="contain"
                 className="ml-2"
             />
         </View>
@@ -45,7 +45,8 @@ export default function Login() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { login } = useAuth();
+    const auth = useAuth();
+    const login = auth?.login;
     const router = useRouter();
 
     const handleLogin = async () => {
@@ -54,8 +55,14 @@ export default function Login() {
             return;
         }
 
+        if (!login) {
+            Alert.alert("Auth Error", "Authentication service unavailable.");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
+            // Note: Change this URL to your actual Railway endpoint if production
             const response = await fetch('https://api.movieboxing.com/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -67,18 +74,26 @@ export default function Login() {
 
             const data = await response.json();
 
-            if (response.ok && data.token) {
+            if (response.ok && data.accessToken && data.refreshToken) {
                 const userPayload = {
-                    id: data.userId,
-                    name: data.displayName,
+                    userId: data.userId,
+                    displayName: data.displayName,
                     username: data.username,
                     email: data.email
                 };
-                await login(data.token, userPayload);
+
+                // CRITICAL: We now pass accessToken AND refreshToken
+                await login(data.accessToken, data.refreshToken, userPayload);
+
+                // Expo Router will usually auto-redirect if your layout 
+                // checks for the session, but you can also force it:
+                // router.replace('/home'); 
+
             } else {
                 Alert.alert("Ref Stopped the Fight", data.message || "Invalid credentials");
             }
         } catch (err) {
+            console.error("Login Fetch Error:", err);
             Alert.alert("Connection Error", "The arena is unreachable.");
         } finally {
             setIsSubmitting(false);
@@ -91,9 +106,9 @@ export default function Login() {
             className="flex-1 bg-slate-950"
         >
             <Stack.Screen options={{ headerShown: false }} />
-            
+
             <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}>
-                
+
                 {/* Logo & Header Section */}
                 <View className="mb-10 items-center">
                     <HeaderLogo />
