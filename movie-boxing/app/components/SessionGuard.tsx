@@ -1,5 +1,5 @@
 'use client';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -11,34 +11,39 @@ export const SessionGuard = ({ children }: { children: React.ReactNode }) => {
   const isPublicPage = pathname === '/login' || pathname === '/register' || pathname === '/';
 
   useEffect(() => {
-    // If loading, wait for status.
+    if (session?.error === 'RefreshAccessTokenError') {
+      // Use redirect: true to force a hard reload of the app state
+      signOut({ callbackUrl: '/login', redirect: true });
+      return; // Exit early
+    }
+
     if (status === 'loading') return;
 
-    // Redirect to login if not authenticated and trying to access a protected route
     if (status === 'unauthenticated' && !isPublicPage) {
       router.replace('/login');
     }
-  }, [status, pathname, isPublicPage, router]);
+  }, [status, pathname, isPublicPage, router, session?.error]);
 
-  // 1. Loading State: Keep it consistent with your app's branding
+  // NEW: Global 401 Listener
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      // If any fetch request returns a 401, kick them to login
+      signOut({ callbackUrl: '/login' });
+    };
+
+    window.addEventListener('movieboxing-unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('movieboxing-unauthorized', handleUnauthorized);
+  }, []);
+
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="flex flex-col items-center">
-             <div className="h-10 w-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-4" />
-             <div className="text-red-600 font-black uppercase italic tracking-widest animate-pulse">
-                Syncing Profile...
-             </div>
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+            {/* Your cool red spinner */}
         </div>
-      </div>
     );
   }
 
-  // 2. Auth Check: If middleware missed it or client-side status is trailing, 
-  // hide the children until the redirect in useEffect kicks in.
-  if (status === 'unauthenticated' && !isPublicPage) {
-    return null;
-  }
+  if (status === 'unauthenticated' && !isPublicPage) return null;
 
   return <>{children}</>;
 };

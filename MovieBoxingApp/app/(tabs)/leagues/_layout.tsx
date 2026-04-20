@@ -2,11 +2,16 @@ import { useRouter, Stack } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { TouchableOpacity } from 'react-native';
 
+export const unstable_settings = {
+  initialRouteName: 'index',
+};
+
 export default function LeaguesStack() {
   const router = useRouter();
 
   return (
     <Stack
+      initialRouteName="index"
       screenOptions={{
         headerStyle: { backgroundColor: '#020617' },
         headerTintColor: '#fff',

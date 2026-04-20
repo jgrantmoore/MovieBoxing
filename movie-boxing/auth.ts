@@ -1,31 +1,37 @@
 import NextAuth, { NextAuthOptions, DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
+import { JWT } from "next-auth/jwt";
 
 declare module "next-auth" {
   interface Session {
-    accessToken?: string;
-    refreshToken?: string; // Add this
+    accessToken?: string;    // Added ?
+    refreshToken?: string;   // Added ?
+    error?: "RefreshAccessTokenError";
     user: {
-      id: string;
+      id?: string;           // Added ?
       username?: string;
+      displayName?: string;
     } & DefaultSession["user"];
   }
 
   interface User {
-    id: string;
+    id: string;              // id is usually required on User
     accessToken?: string;
-    refreshToken?: string; // Add this
+    refreshToken?: string;
     username?: string;
+    displayName?: string;
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
     accessToken?: string;
-    refreshToken?: string; // Add this
+    refreshToken?: string;
     username?: string;
+    displayName?: string;
     sub?: string;
+    error?: "RefreshAccessTokenError";
   }
 }
 
@@ -56,15 +62,15 @@ export const authOptions: NextAuthOptions = {
 
           const data = await res.json();
 
-          // Match your new backend response keys (accessToken & refreshToken)
           if (res.ok && data.accessToken) {
             return {
               id: String(data.userId),
               name: data.displayName,
+              displayName: data.displayName,
               username: data.username,
               email: data.email,
               accessToken: data.accessToken,
-              refreshToken: data.refreshToken, // Capture the refresh token
+              refreshToken: data.refreshToken,
             };
           }
           return null;
@@ -83,8 +89,8 @@ export const authOptions: NextAuthOptions = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                email: user.email,
-                name: user.name,
+              email: user.email,
+              name: user.name,
             }),
           });
 
@@ -92,9 +98,10 @@ export const authOptions: NextAuthOptions = {
 
           if (res.ok && data.accessToken) {
             user.accessToken = data.accessToken;
-            user.refreshToken = data.refreshToken; // Store the new refresh token
+            user.refreshToken = data.refreshToken;
             user.id = String(data.userId);
             user.username = data.username;
+            user.displayName = data.displayName;
             return true;
           }
           return false;
@@ -108,17 +115,27 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.sub = user.id;
         token.accessToken = user.accessToken;
-        token.refreshToken = user.refreshToken; // Pass refresh token to JWT
+        token.refreshToken = user.refreshToken;
         token.username = user.username;
+        token.displayName = user.displayName;
       }
+
+      // Use a type guard to ensure exp is a number before doing math
+      if (typeof token.exp === 'number' && Date.now() < token.exp * 1000) {
+        return token;
+      }
+
+      // If it's not a number or it's expired
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub as string;
         session.user.username = token.username as string;
+        session.user.displayName = token.displayName as string;
         session.accessToken = token.accessToken as string;
-        session.refreshToken = token.refreshToken as string; // Pass refresh token to Client
+        session.refreshToken = token.refreshToken as string;
+        session.error = token.error; // Crucial for SessionGuard
       }
       return session;
     },
@@ -128,7 +145,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // Set to 30 days to match your RefreshToken lifespan
+    maxAge: 30 * 24 * 60 * 60,
   },
 };
 

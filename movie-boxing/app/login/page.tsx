@@ -28,10 +28,11 @@ function LoginFormContent() {
     const justRegistered = searchParams.get('registered');
 
     useEffect(() => {
-        if (status === 'authenticated') {
+        // ONLY redirect if the session is fully loaded AND has no error
+        if (status === 'authenticated' && !session?.error) {
             router.replace('/dashboard');
         }
-    }, [status, router]);
+    }, [status, session, router]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });

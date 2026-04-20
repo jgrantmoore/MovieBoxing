@@ -16,7 +16,7 @@ export default function MyProfile() {
         return null; // Don't render anything while redirecting
     }
 
-    const MY_USER_ID = session.user.id; // Replace with actual logic to get logged-in user's ID
+    const MY_USER_ID = session.user.userId; // Replace with actual logic to get logged-in user's ID
 
     return <ProfileView userId={MY_USER_ID} />;
 }

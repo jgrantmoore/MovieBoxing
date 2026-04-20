@@ -13,7 +13,7 @@ export default function PrivacyPolicy() {
                         Privacy Policy
                     </h1>
                     <p className="text-neutral-500 font-mono text-sm uppercase tracking-widest">
-                        Last Updated: March 22, 2026
+                        Last Updated: April 20, 2026
                     </p>
                 </header>
 
@@ -24,7 +24,7 @@ export default function PrivacyPolicy() {
                             1. Introduction
                         </h2>
                         <p className="text-neutral-300 leading-relaxed">
-                            Welcome to <span className="text-white font-bold">MovieBoxing</span>. We value your privacy and are committed to protecting your personal data. This policy outlines how we handle your information when you use our fantasy movie league platform.
+                            Welcome to <span className="text-white font-bold">MovieBoxing</span>. We value your privacy and are committed to protecting your personal data. This policy outlines how we handle your information as we grow our fantasy movie league platform.
                         </p>
                     </section>
 
@@ -33,12 +33,12 @@ export default function PrivacyPolicy() {
                             2. Data We Collect
                         </h2>
                         <p className="text-neutral-300 mb-4">
-                            We collect minimal data to provide a functional competitive experience. This includes:
+                            We collect data to provide a functional and competitive experience:
                         </p>
                         <ul className="list-disc list-inside space-y-2 text-neutral-400 font-medium">
                             <li><span className="text-white">Account Information:</span> Email address and display name (via Google OAuth or manual registration).</li>
                             <li><span className="text-white">Gameplay Data:</span> League participation, movie draft picks, and roster history.</li>
-                            <li><span className="text-white">Authentication:</span> Secure session tokens provided by NextAuth.js.</li>
+                            <li><span className="text-white">Usage & Cookies:</span> Secure session tokens via NextAuth.js and basic analytics to improve site performance.</li>
                         </ul>
                     </section>
 
@@ -47,35 +47,40 @@ export default function PrivacyPolicy() {
                             3. How We Use Your Data
                         </h2>
                         <p className="text-neutral-300 leading-relaxed">
-                            Your information is used strictly for core app functionality:
+                            Your information is used for core app functionality and platform growth:
                         </p>
                         <div className="grid md:grid-cols-2 gap-4 mt-4">
                             <div className="p-4 bg-neutral-950/50 border border-neutral-800 rounded-xl">
-                                <p className="text-xs font-bold text-neutral-500 uppercase mb-1">Identity</p>
-                                <p className="text-sm">To display your name on league leaderboards and draft boards.</p>
+                                <p className="text-xs font-bold text-neutral-500 uppercase mb-1">Identity & Competition</p>
+                                <p className="text-sm">To display your name on leaderboards and manage your movie rosters.</p>
                             </div>
                             <div className="p-4 bg-neutral-950/50 border border-neutral-800 rounded-xl">
-                                <p className="text-xs font-bold text-neutral-500 uppercase mb-1">Communication</p>
-                                <p className="text-sm">To send essential account-related notifications or league updates.</p>
+                                <p className="text-xs font-bold text-neutral-500 uppercase mb-1">Service Improvements</p>
+                                <p className="text-sm">To analyze platform usage and deliver account-related updates or premium features.</p>
                             </div>
                         </div>
                     </section>
 
                     <section>
                         <h2 className="text-2xl font-black uppercase italic text-red-600 mb-4 tracking-tight">
-                            4. Data Sharing & Security
+                            4. Sharing & Third-Parties
                         </h2>
-                        <p className="text-neutral-300 leading-relaxed">
-                            <span className="text-white font-bold underline decoration-red-600">We do not sell your personal data.</span> Data is stored securely using Azure and is only accessible to the application to facilitate gameplay. We do not share your information with third-party advertisers.
+                        <p className="text-neutral-300 leading-relaxed mb-4">
+                            <span className="text-white font-bold underline decoration-red-600">We do not sell your personal data.</span> To support the platform, we may work with third-party service providers:
                         </p>
+                        <ul className="space-y-3 text-sm text-neutral-400">
+                            <li><span className="text-white font-bold">Advertising:</span> We may use third-party partners to serve ads. These partners may use cookies to show you relevant content.</li>
+                            <li><span className="text-white font-bold">Payments:</span> For premium tiers, financial transactions are handled securely by third-party processors. We do not store your credit card details.</li>
+                            <li><span className="text-white font-bold">Infrastructure:</span> Data is stored securely using cloud providers.</li>
+                        </ul>
                     </section>
 
                     <section>
                         <h2 className="text-2xl font-black uppercase italic text-red-600 mb-4 tracking-tight">
-                            5. Your Rights
+                            5. Your Rights & Cookies
                         </h2>
                         <p className="text-neutral-300 leading-relaxed">
-                            You may request to view, edit, or delete your account data at any time. If you wish to withdraw your consent for data processing, please contact us at the email provided below.
+                            You may request to view, edit, or delete your account data at any time. By using MovieBoxing, you consent to our use of cookies for authentication and essential site functions. You can manage cookie preferences through your browser settings.
                         </p>
                     </section>
 
