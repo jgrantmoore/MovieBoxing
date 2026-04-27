@@ -167,7 +167,7 @@ export const FrontOfficeModal = ({
 
                     {/* Pickup Mode Search UI */}
                     {mode === 'pickup' && swapSelection && (
-                        <View className="bg-neutral-900 p-5 rounded-3xl border border-neutral-800 mb-20">
+                        <View className="bg-neutral-900 px-5 pt-6 rounded-3xl border border-neutral-800 mb-20">
                             <View className="flex-row items-center mb-6">
                                 {searching ? (
                                     <ActivityIndicator size="small" color="#dc2626" />
@@ -177,7 +177,7 @@ export const FrontOfficeModal = ({
                                 <TextInput
                                     placeholder="Scout Free Agents..."
                                     placeholderTextColor="#525252"
-                                    className="ml-3 flex-1 text-white font-bold uppercase italic h-10"
+                                    className="ml-3 flex-1 text-white font-bold uppercase italic "
                                     value={searchTerm}
                                     onChangeText={handleSearch}
                                     editable={!isProcessing}
@@ -187,8 +187,10 @@ export const FrontOfficeModal = ({
                             {searchResults.map((movie: any) => (
                                 <TouchableOpacity
                                     key={movie.id}
-                                    disabled={isProcessing || movie.OwnedBy} // Disable if already taken
-                                    className={`flex-row items-center bg-black/40 p-3 rounded-2xl mb-3 border ${movie.OwnedBy ? 'border-neutral-900 opacity-60' : 'border-neutral-800'}`}
+                                    // Use !! to convert the object/null to a true/false boolean
+                                    disabled={isProcessing || !!movie.OwnedBy}
+                                    className={`flex-row items-center bg-black/40 p-3 rounded-2xl mb-3 border ${!!movie.OwnedBy ? 'border-neutral-900 opacity-60' : 'border-neutral-800'
+                                        }`}
                                     onPress={() => Alert.alert("Pickup", `Sign ${movie.title}?`)}
                                 >
                                     <Image

@@ -140,21 +140,21 @@ export default function LeagueDetails() {
     };
 
     const handleSearchMovies = async (query: string) => {
-    try {
-        const results = await apiRequest<any[]>(`/movies/search?q=${query}`, { 
-            method: 'POST', 
-            body: JSON.stringify({ 
-                StartDate: leagueInfo?.StartDate, 
-                EndDate: leagueInfo?.EndDate,
-                LeagueId: id // Pass LeagueId to check for existing owners
-            }) 
-        });
-        return results;
-    } catch (err) {
-        console.error("Search Error:", err);
-        return [];
-    }
-};
+        try {
+            const results = await apiRequest<any[]>(`/movies/search?q=${query}`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    StartDate: leagueInfo?.StartDate,
+                    EndDate: leagueInfo?.EndDate,
+                    LeagueId: id // Pass LeagueId to check for existing owners
+                })
+            });
+            return results;
+        } catch (err) {
+            console.error("Search Error:", err);
+            return [];
+        }
+    };
 
     if (loading || !leagueInfo) {
         return (
@@ -254,9 +254,13 @@ export default function LeagueDetails() {
                                                 {team.TeamName}
                                             </Text>
                                         </View>
-                                        <Text className="text-neutral-500 font-mono text-[10px] mt-1 uppercase tracking-widest">Manager: {team.Owner}</Text>
+                                        <TouchableOpacity className="text-neutral-500 font-mono text-[10px] mt-1 uppercase tracking-widest" onPress={() => router.navigate(`/profile/${team.OwnerUserId}`)}>
+                                            <Text className="text-white font-bold text-[10px] mt-1 uppercase italic tracking-widest">
+                                            Manager: {team.Owner} 
+                                            </Text>
+                                        </TouchableOpacity>
 
-                                        {isUser && (
+                                        {isUser && leagueInfo.HasDrafted && (
                                             <View className="flex-row gap-2 mt-4">
                                                 <TouchableOpacity onPress={() => setIsFrontOfficeOpen(true)} className="bg-red-600 px-4 py-2 rounded-xl flex-row items-center">
                                                     <Pencil size={14} color="white" />

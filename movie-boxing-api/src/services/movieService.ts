@@ -74,7 +74,7 @@ export async function syncMovieData() {
                             SET "BoxOffice" = $1, 
                                 "USReleaseDate" = $2,
                                 "InternationalReleaseDate" = $3,
-                                "PosterUrl" = $4
+                                "PosterUrl" = $4,
                                 "Title" = $5
                             WHERE "TMDBId" = $6
                         `;
