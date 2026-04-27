@@ -293,24 +293,73 @@ export const getLeaderboard = async (req: Request, res: Response) => {
 
 /**
  * Get basic meta-info about a league.
- * PUBLIC
+ * MIXED: Works for both logged-in and anonymous users.
  */
 export const getLeagueInfo = async (req: Request, res: Response) => {
     const leagueId = req.query.id;
     if (!leagueId) return res.status(400).send("League ID is required");
 
+    // 1. Soft Auth: Middleware handles this. 
+    // If user is not logged in, userId is -1.
+    const userId = req.user?.userId || -1;
+
     try {
         const query = `
             SELECT 
-                l."LeagueId", l."LeagueName", u."DisplayName" AS "AdminDisplayName", 
-                l."StartDate", l."EndDate", l."StartingNumber", 
-                l."BenchNumber", l."PreferredReleaseDate", l."FreeAgentsAllowed"
+                l."LeagueId",
+                l."LeagueName",
+                l."AdminUserId",
+                u."DisplayName" AS "AdminDisplayName", 
+                l."StartDate",
+                l."EndDate",
+                l."StartingNumber", 
+                l."BenchNumber",
+                l."PreferredReleaseDate",
+                l."FreeAgentsAllowed",
+                l."HasDrafted",
+                l."IsDrafting",
+                l."JoinPasswordHash",
+                -- Check if the current user has a team in this specific league
+                (SELECT COUNT(1) FROM "Teams" t WHERE t."LeagueId" = l."LeagueId" AND t."OwnerUserId" = $2) AS "IsJoined"
             FROM "Leagues" l
             INNER JOIN "Users" u ON l."AdminUserId" = u."UserId"
             WHERE l."LeagueId" = $1
         `;
-        const { rows } = await pool.query(query, [parseInt(leagueId as string)]);
-        return rows.length > 0 ? res.status(200).json(rows[0]) : res.status(404).send("League not found");
+
+        const { rows } = await pool.query(query, [parseInt(leagueId as string), userId]);
+
+        if (rows.length === 0) {
+            return res.status(404).send("League not found");
+        }
+
+        const row = rows[0];
+        const rowAdminId = row.AdminUserId || row.adminuserid;
+
+        // 2. Format the response to match your standard League object
+        const response = {
+            LeagueId: row.LeagueId || row.leagueid,
+            LeagueName: row.LeagueName || row.leaguename,
+            AdminName: row.AdminDisplayName || row.admindisplayname,
+            StartDate: row.StartDate || row.startdate,
+            EndDate: row.EndDate || row.enddate,
+            HasDrafted: row.HasDrafted || row.hasdrafted,
+            IsDrafting: row.IsDrafting || row.isdrafting,
+            isPrivate: (row.JoinPasswordHash || row.joinpasswordhash) != null,
+            Rules: {
+                Starting: row.StartingNumber || row.startingnumber,
+                Bench: row.BenchNumber || row.benchnumber,
+                FreeAgents: row.FreeAgentsAllowed || row.freeagentsallowed,
+                PreferredRelease: row.PreferredReleaseDate || row.preferredreleasedate
+            },
+            // 3. Add auth-specific fields only if user is logged in
+            ...(userId > 0 && {
+                isJoined: parseInt(row.IsJoined || row.isjoined) > 0,
+                isAdmin: rowAdminId === userId
+            })
+        };
+
+        return res.status(200).json(response);
+
     } catch (error) {
         console.error("League Info Fetch Error:", error);
         return res.status(500).send("Internal Server Error");

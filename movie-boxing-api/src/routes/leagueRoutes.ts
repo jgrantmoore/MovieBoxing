@@ -22,7 +22,7 @@ router.get('/leaderboard', getLeaderboard);
 // /api/leagues?id=X
 router.get('/', authenticateToken, getLeague);
 // /api/leagues/info?id=X
-router.get('/info', getLeagueInfo);
+router.get('/info', authenticateToken, getLeagueInfo);
 // /api/leagues/release-order?id=X
 router.get('/release-order', getLeagueReleaseOrder);
 // /api/leagues/my

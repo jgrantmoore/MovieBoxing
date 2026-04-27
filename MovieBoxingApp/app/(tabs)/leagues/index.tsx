@@ -1,39 +1,81 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useContext, useRef } from 'react';
+import { 
+    ScrollView, 
+    View, 
+    Text, 
+    TouchableOpacity, 
+    ActivityIndicator, 
+    RefreshControl 
+} from 'react-native';
+import Animated, { 
+    LinearTransition, 
+    FadeInLeft, 
+    FadeOutRight 
+} from 'react-native-reanimated';
 import { Link, router } from 'expo-router';
 import { MovieCard } from '../../../src/components/MovieCard';
 import { apiRequest } from '../../../src/api/client';
 import { Team } from '../../../src/types/league';
 import { Plus, Search } from 'lucide-react-native';
-import '../../../global.css';
 import { RefreshContext } from '@/src/context/RefreshContext';
+import '../../../global.css';
 
 export default function Leagues() {
     const [teams, setTeams] = useState<Team[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [openBench, setOpenBench] = useState<Set<number>>(new Set());
     const { refreshSignal } = useContext(RefreshContext);
 
+    // Refs for scrolling logic
+    const scrollRefs = useRef<{ [key: number]: ScrollView | null }>({});
+    const scrollOffsets = useRef<{ [key: number]: number }>({});
+
     const STARTING_SLOTS = 5;
 
+    const fetchLeagues = async (showLoadingIndicator = true) => {
+        if (showLoadingIndicator) setLoading(true);
+        try {
+            const data = await apiRequest<Team[]>('/teams/my-teams');
+            setTeams(data || []);
+        } catch (err) {
+            console.error("Leagues fetch error:", err);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchLeagues = async () => {
-            try {
-                const data = await apiRequest('/teams/my-teams');
-                setTeams(data);
-            } catch (err) {
-                console.error("Leagues fetch error:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchLeagues();
     }, [refreshSignal]);
 
-    const toggleBench = (teamId: number) => {
-        const next = new Set(openBench);
-        next.has(teamId) ? next.delete(teamId) : next.add(teamId);
-        setOpenBench(next);
+    const onRefresh = () => {
+        setRefreshing(true);
+        fetchLeagues(false);
+    };
+
+    // Async toggle to handle scroll-back before filtering
+    const toggleBench = async (teamId: number) => {
+        const currentX = scrollOffsets.current[teamId] || 0;
+        const isClosing = openBench.has(teamId);
+
+        // Emergency Brake: stop any user momentum immediately
+        scrollRefs.current[teamId]?.scrollTo({ x: currentX, animated: false });
+
+        if (isClosing) {
+            // 1. Force scroll back to start
+            scrollRefs.current[teamId]?.scrollTo({ x: 0, animated: true });
+            
+            // 2. Wait for scroll animation (~300ms) before removing items from layout
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
+        setOpenBench((prev) => {
+            const next = new Set(prev);
+            next.has(teamId) ? next.delete(teamId) : next.add(teamId);
+            return next;
+        });
     };
 
     if (loading) {
@@ -45,7 +87,16 @@ export default function Leagues() {
     }
 
     return (
-        <ScrollView className="flex-1 bg-slate-950">
+        <ScrollView 
+            className="flex-1 bg-slate-950"
+            refreshControl={
+                <RefreshControl 
+                    refreshing={refreshing} 
+                    onRefresh={onRefresh} 
+                    tintColor="#dc2626" 
+                />
+            }
+        >
             <View className="px-6 py-8">
 
                 {/* Header Section */}
@@ -85,8 +136,9 @@ export default function Leagues() {
                             );
 
                             const isBenchOpen = openBench.has(team.TeamId);
-                            // Show all slots if bench is open, otherwise show starting 5
-                            const displaySlots = isBenchOpen ? (team.StartingNumber + team.BenchNumber) : team.StartingNumber;
+                            const displaySlots = isBenchOpen 
+                                ? (team.StartingNumber + team.BenchNumber) 
+                                : team.StartingNumber;
 
                             return (
                                 <View key={team.TeamId} className="mb-10">
@@ -115,37 +167,51 @@ export default function Leagues() {
                                     </View>
 
                                     {/* Horizontal Swipeable Roster */}
-                                    <View className="mx--6">
+                                    <View className="mx-[-24px]">
                                         <ScrollView
                                             horizontal
                                             showsHorizontalScrollIndicator={false}
-                                            className='px-0'
+                                            ref={(el) => { scrollRefs.current[team.TeamId] = el; }}
+                                            onScroll={(event) => {
+                                                scrollOffsets.current[team.TeamId] = event.nativeEvent.contentOffset.x;
+                                            }}
+                                            scrollEventThrottle={16}
                                         >
-                                            {Array.from({ length: displaySlots }).map((_, idx) => {
-                                                const slotNumber = idx + 1;
-                                                const pick = team.Picks.find(p => p.OrderDrafted === slotNumber);
+                                            <View className="flex-row px-6">
+                                                {Array.from({ length: displaySlots }).map((_, idx) => {
+                                                    const slotNumber = idx + 1;
+                                                    const pick = team.Picks.find(p => p.OrderDrafted === slotNumber);
 
-                                                return (
-                                                    <MovieCard
-                                                        key={`${team.TeamId}-slot-${slotNumber}`}
-                                                        movieId={pick?.MovieId || 0}
-                                                        title={pick?.Title || "Open Slot"}
-                                                        posterUrl={pick?.PosterUrl || null}
-                                                        boxOffice={pick?.BoxOffice || 0}
-                                                        releaseDate={pick?.ReleaseDate || null}
-                                                        isBench={slotNumber > STARTING_SLOTS}
-                                                    />
-                                                );
-                                            })}
+                                                    return (
+                                                        <Animated.View
+                                                            key={`${team.TeamId}-slot-${slotNumber}`}
+                                                            layout={LinearTransition.damping(15)}
+                                                            entering={FadeInLeft.damping(15).delay(idx * 50)}
+                                                            exiting={FadeOutRight.duration(200)}
+                                                            style={{ marginRight: 12 }}
+                                                        >
+                                                            <MovieCard
+                                                                movieId={pick?.MovieId || 0}
+                                                                title={pick?.Title || "Open Slot"}
+                                                                posterUrl={pick?.PosterUrl || null}
+                                                                boxOffice={pick?.BoxOffice || 0}
+                                                                releaseDate={pick?.ReleaseDate || null}
+                                                                isBench={slotNumber > STARTING_SLOTS}
+                                                            />
+                                                        </Animated.View>
+                                                    );
+                                                })}
+                                            </View>
                                         </ScrollView>
                                     </View>
 
                                     <TouchableOpacity
                                         onPress={() => toggleBench(team.TeamId)}
-                                        className="mt-4 py-2 border-b border-neutral-900 items-center"
+                                        activeOpacity={0.7}
+                                        className="mt-6 py-4 bg-neutral-800/50 border border-neutral-700/50 rounded-2xl items-center"
                                     >
-                                        <Text className="text-neutral-500 text-[10px] font-black uppercase tracking-[2px]">
-                                            {isBenchOpen ? '← Close Bench' : '→ View Bench Slots'}
+                                        <Text className="text-neutral-400 text-[10px] font-black uppercase tracking-widest">
+                                            {isBenchOpen ? '← Hide Benched Movies' : '→ View Full Roster'}
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
@@ -163,6 +229,6 @@ export default function Leagues() {
                     )}
                 </View>
             </View>
-        </ScrollView >
+        </ScrollView>
     );
 }

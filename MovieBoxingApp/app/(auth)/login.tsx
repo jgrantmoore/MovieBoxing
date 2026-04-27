@@ -177,7 +177,7 @@ export default function Login() {
                 </View>
 
                 {/* Footer Link */}
-                <TouchableOpacity onPress={() => router.push('/register')} className="mt-8 items-center">
+                <TouchableOpacity onPress={() => router.navigate('/register')} className="mt-8 items-center">
                     <Text className="text-neutral-500 font-bold text-xs uppercase tracking-tighter">
                         NEW TO THE LEAGUE? <Text className="text-red-600 font-black italic underline">CREATE ACCOUNT</Text>
                     </Text>

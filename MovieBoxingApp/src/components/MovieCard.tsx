@@ -36,7 +36,6 @@ export const MovieCard: React.FC<MovieCardProps> = ({
   const formatRevenue = (rev: number) => {
     if (rev >= 1000000000) return `$${(rev / 1000000000).toFixed(2)}B`;
     if (rev >= 1000000) return `$${(rev / 1000000).toFixed(1)}M`;
-    if (rev > 0) return `$${(rev / 1000).toFixed(0)}K`;
     return "$0.0";
   };
 
@@ -78,9 +77,12 @@ export const MovieCard: React.FC<MovieCardProps> = ({
         </View>
       </View>
 
-      <View className="mt-3 h-10">
+      <View className="mt-3 h-12 flex-col justify-between">
         <Text numberOfLines={2} className={`font-black text-xs uppercase italic leading-tight ${isEmpty ? 'text-neutral-600' : 'text-white'}`}>
           {title}
+        </Text>
+        <Text className={`text-[9px] font-black uppercase mt-1 ${isEmpty ? 'text-neutral-700' : 'text-neutral-500'}`}>
+          {relDateUTC ? relDateUTC.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : 'Release Date TBD'}
         </Text>
       </View>
 

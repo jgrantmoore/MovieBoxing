@@ -11,7 +11,8 @@ import {
     Image
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
-import { ChevronRight, AlertCircle } from 'lucide-react-native';
+// Added User, Mail, Lock, Eye, EyeOff to imports
+import { ChevronRight, AlertCircle, Check, Eye, EyeOff, User, Mail, Lock } from 'lucide-react-native';
 import { apiRequest } from '@/src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
 
@@ -21,7 +22,7 @@ const BoxingGloveR = require('../../assets/images/boxingloveR.png');
 export default function Register() {
     const router = useRouter();
     const { login } = useAuth();
-    
+
     const [formData, setFormData] = useState({
         name: '',
         username: '',
@@ -32,8 +33,10 @@ export default function Register() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [ageVerified, setAgeVerified] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-    // --- Matches your Web State structure ---
     const [usernameStatus, setUsernameStatus] = useState<{
         loading: boolean;
         available: boolean | null;
@@ -44,7 +47,6 @@ export default function Register() {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    // --- DEBOUNCED USERNAME CHECK (Matches your Web Logic) ---
     useEffect(() => {
         const checkUsernameAvailability = async () => {
             const user = formData.username.trim();
@@ -52,17 +54,12 @@ export default function Register() {
                 setUsernameStatus({ loading: false, available: null, message: '' });
                 return;
             }
-
             setUsernameStatus(prev => ({ ...prev, loading: true }));
-
             try {
-                // Using apiRequest helper - ensuring it sends a POST like your web code
                 const data = await apiRequest('/auth/check-username', {
                     method: 'POST',
                     body: JSON.stringify({ username: user })
                 });
-                console.log("Username check response:", data);
-
                 setUsernameStatus({
                     loading: false,
                     available: data.available,
@@ -76,26 +73,26 @@ export default function Register() {
         const timeoutId = setTimeout(() => {
             checkUsernameAvailability();
         }, 500);
-
         return () => clearTimeout(timeoutId);
     }, [formData.username]);
 
     const handleRegister = async () => {
         setError(null);
-
         if (usernameStatus.available === false) {
             setError(usernameStatus.message);
             return;
         }
-
         if (formData.password !== formData.confirmPassword) {
             setError('Passwords do not match');
+            return;
+        }
+        if (!ageVerified) {
+            setError('You must confirm that you are at least 13 years old');
             return;
         }
 
         setLoading(true);
         try {
-            // Updated to match your Web registration endpoint structure
             const response = await fetch('https://api.movieboxing.com/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -106,9 +103,7 @@ export default function Register() {
                     password: formData.password
                 })
             });
-
             const data = await response.json();
-
             if (response.ok && data.accessToken) {
                 const userPayload = {
                     userId: data.userId,
@@ -132,7 +127,7 @@ export default function Register() {
             <Stack.Screen options={{ headerShown: false }} />
 
             <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }} keyboardShouldPersistTaps="handled">
-                
+
                 {/* Header Logo */}
                 <View className="mb-10 items-center">
                     <View className="flex-row items-center justify-center mb-4">
@@ -149,80 +144,111 @@ export default function Register() {
                 {/* Registration Card */}
                 <View className="bg-neutral-900/50 border-2 border-neutral-800 rounded-[2.5rem] p-6 shadow-2xl">
                     
+                    {/* Name & Username Row */}
                     <View className="flex-row gap-x-3 mb-4">
                         <View className="flex-1">
                             <Text className="text-neutral-500 text-[9px] font-black uppercase mb-2 ml-1 tracking-widest">Name</Text>
-                            <TextInput
-                                className="bg-black border border-neutral-800 focus:border-red-600/50 rounded-2xl px-4 py-4 text-white font-bold"
-                                placeholder="John"
-                                placeholderTextColor="#404040"
-                                value={formData.name}
-                                onChangeText={(v) => updateField('name', v)}
-                            />
+                            <View className="bg-black border border-neutral-800 rounded-2xl flex-row items-center px-4">
+                                <User color="#525252" size={16} />
+                                <TextInput
+                                    className="flex-1 h-14 ml-3 text-white font-bold"
+                                    placeholder="John"
+                                    placeholderTextColor="#404040"
+                                    value={formData.name}
+                                    onChangeText={(v) => updateField('name', v)}
+                                />
+                            </View>
                         </View>
                         <View className="flex-1">
                             <Text className="text-neutral-500 text-[9px] font-black uppercase mb-2 ml-1 tracking-widest">Username</Text>
-                            <TextInput
-                                className={`bg-black border rounded-2xl px-4 py-4 text-white font-bold transition-colors ${
-                                    usernameStatus.available === true ? 'border-green-500' : 
-                                    usernameStatus.available === false ? 'border-red-600' : 'border-neutral-800'
-                                }`}
-                                placeholder="fighter123"
-                                placeholderTextColor="#404040"
-                                autoCapitalize="none"
-                                value={formData.username}
-                                onChangeText={(v) => updateField('username', v)}
-                            />
-                            {/* Availability Sub-text (Directly below field) */}
-                            {formData.username.length >= 3 && (
-                                <Text className={`text-[10px] mt-1 font-bold italic uppercase tracking-tight ml-1 ${
-                                    usernameStatus.available ? 'text-green-500' : 'text-red-600'
-                                }`}>
-                                    {usernameStatus.loading ? 'Checking...' : usernameStatus.message}
-                                </Text>
-                            )}
+                            <View className={`bg-black border rounded-2xl flex-row items-center px-4 transition-colors ${
+                                usernameStatus.available === true ? 'border-green-500' :
+                                usernameStatus.available === false ? 'border-red-600' : 'border-neutral-800'
+                            }`}>
+                                <User color="#525252" size={16} />
+                                <TextInput
+                                    className="flex-1 h-14 ml-3 text-white font-bold"
+                                    placeholder="fighter123"
+                                    placeholderTextColor="#404040"
+                                    autoCapitalize="none"
+                                    value={formData.username}
+                                    onChangeText={(v) => updateField('username', v)}
+                                />
+                            </View>
                         </View>
                     </View>
 
                     {/* Email */}
                     <View className="mb-4">
                         <Text className="text-neutral-500 text-[9px] font-black uppercase mb-2 ml-1 tracking-widest">Email Address</Text>
-                        <TextInput
-                            className="bg-black border border-neutral-800 focus:border-red-600/50 rounded-2xl px-4 py-4 text-white font-bold"
-                            placeholder="john@example.com"
-                            placeholderTextColor="#404040"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            value={formData.email}
-                            onChangeText={(v) => updateField('email', v)}
-                        />
+                        <View className="bg-black border border-neutral-800 rounded-2xl flex-row items-center px-4">
+                            <Mail color="#525252" size={16} />
+                            <TextInput
+                                className="flex-1 h-14 ml-3 text-white font-bold"
+                                placeholder="john@example.com"
+                                placeholderTextColor="#404040"
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                                value={formData.email}
+                                onChangeText={(v) => updateField('email', v)}
+                            />
+                        </View>
                     </View>
 
-                    {/* Passwords */}
-                    <View className="flex-row gap-x-3 mb-6">
-                        <View className="flex-1">
-                            <Text className="text-neutral-500 text-[9px] font-black uppercase mb-2 ml-1 tracking-widest">Password</Text>
+                    {/* Password */}
+                    <View className="mb-4">
+                        <Text className="text-neutral-500 text-[9px] font-black uppercase mb-2 ml-1 tracking-widest">Password</Text>
+                        <View className="bg-black border border-neutral-800 rounded-2xl flex-row items-center px-4">
+                            <Lock color="#525252" size={16} />
                             <TextInput
-                                className="bg-black border border-neutral-800 focus:border-red-600/50 rounded-2xl px-4 py-4 text-white font-bold"
-                                secureTextEntry
-                                placeholder="••••"
+                                className="flex-1 h-14 ml-3 text-white font-bold"
+                                secureTextEntry={!showPassword}
+                                textContentType="newPassword"
+                                placeholder="••••••••"
                                 placeholderTextColor="#404040"
                                 value={formData.password}
                                 onChangeText={(v) => updateField('password', v)}
                             />
+                            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                {showPassword ? <EyeOff color="#525252" size={18} /> : <Eye color="#525252" size={18} />}
+                            </TouchableOpacity>
                         </View>
-                        <View className="flex-1">
-                            <Text className="text-neutral-500 text-[9px] font-black uppercase mb-2 ml-1 tracking-widest">Confirm</Text>
+                    </View>
+
+                    {/* Confirm Password */}
+                    <View className="mb-6">
+                        <Text className="text-neutral-500 text-[9px] font-black uppercase mb-2 ml-1 tracking-widest">Confirm Password</Text>
+                        <View className="bg-black border border-neutral-800 rounded-2xl flex-row items-center px-4">
+                            <Lock color="#525252" size={16} />
                             <TextInput
-                                className="bg-black border border-neutral-800 focus:border-red-600/50 rounded-2xl px-4 py-4 text-white font-bold"
-                                secureTextEntry
-                                placeholder="••••"
+                                className="flex-1 h-14 ml-3 text-white font-bold"
+                                secureTextEntry={!showConfirmPassword}
+                                textContentType="newPassword"
+                                placeholder="••••••••"
                                 placeholderTextColor="#404040"
                                 value={formData.confirmPassword}
                                 onChangeText={(v) => updateField('confirmPassword', v)}
                             />
+                            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                                {showConfirmPassword ? <EyeOff color="#525252" size={18} /> : <Eye color="#525252" size={18} />}
+                            </TouchableOpacity>
                         </View>
                     </View>
+
+                    {/* Age Verification */}
+                    <TouchableOpacity 
+                        onPress={() => setAgeVerified(prev => !prev)} 
+                        activeOpacity={0.7}
+                        className="flex-row items-start mb-6"
+                    >
+                        <View className={`w-5 h-5 rounded-sm border ${ageVerified ? 'bg-red-600 border-red-600' : 'border-neutral-800'} items-center justify-center mr-3 mt-0.5`}>
+                            {ageVerified && <Check color="#fff" size={13} strokeWidth={4} />}
+                        </View>
+                        <Text className="text-neutral-500 text-[10px] font-bold italic uppercase tracking-tight pr-8">
+                            I confirm that I am at least 13 years old and agree to the
+                            <Text onPress={() => router.push('/privacy')} className="text-red-600 underline"> Privacy Policy.</Text>
+                        </Text>
+                    </TouchableOpacity>
 
                     {/* Error Box */}
                     {error && (
@@ -232,6 +258,7 @@ export default function Register() {
                         </View>
                     )}
 
+                    {/* Register Button */}
                     <TouchableOpacity
                         onPress={handleRegister}
                         disabled={loading || usernameStatus.available === false}
@@ -249,7 +276,7 @@ export default function Register() {
 
                 {/* Footer Link */}
                 <View className="mt-8 items-center">
-                    <TouchableOpacity onPress={() => router.push('/login')}>
+                    <TouchableOpacity onPress={() => router.navigate('/login')}>
                         <Text className="text-neutral-500 text-xs font-bold uppercase tracking-widest">
                             ALREADY REGISTERED? <Text className="text-red-600 font-black italic underline">LOGIN HERE</Text>
                         </Text>

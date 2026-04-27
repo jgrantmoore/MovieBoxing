@@ -9,6 +9,7 @@ import userRoutes from './routes/userRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import teamRoutes from './routes/teamRoutes.js';
 import draftRoutes from './routes/draftRoutes.js';
+import tradeRoutes from './routes/tradeRoutes.js';
 import cron from 'node-cron';
 import { syncMovieData } from './services/movieService.js';
 import { snapshotEndingLeagues } from './services/leagueService.js';
@@ -53,6 +54,7 @@ app.use('/api/user', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/drafts', draftRoutes);
+app.use('/api/trades', tradeRoutes);
 
 // Cron and Health Check
 
