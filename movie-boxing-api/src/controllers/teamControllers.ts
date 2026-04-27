@@ -37,7 +37,7 @@ export const assignMovie = async (req: Request, res: Response) => {
 
         const leagueId = league.LeagueId || league.leagueid;
         const startingNumber = league.StartingNumber || league.startingnumber;
-        const IsStarting = SlotNumber <= startingNumber ? 1 : 0;
+        const IsStarting = SlotNumber <= startingNumber ? true : false;
 
         // 3. Start Transaction
         await client.query('BEGIN');
