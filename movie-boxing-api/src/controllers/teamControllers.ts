@@ -177,7 +177,7 @@ export const deleteTeam = async (req: Request, res: Response) => {
             DELETE FROM "Teams"
             WHERE "TeamId" = $1 AND "OwnerUserId" = $2
         `;
-        
+
         const result = await pool.query(query, [parseInt(teamId as string), userId]);
 
         if (result.rowCount && result.rowCount > 0) {
@@ -230,7 +230,7 @@ export const getUserTeamsAndPicks = async (req: Request, res: Response) => {
 
         rows.forEach(row => {
             const tId = row.TeamId || row.teamid;
-            
+
             if (!teamsMap.has(tId)) {
                 teamsMap.set(tId, {
                     TeamId: tId,
@@ -325,7 +325,7 @@ export const replaceMovie = async (req: Request, res: Response) => {
         // 2. Business Rule: Cannot sign a movie that has already released
         const today = new Date();
         const releaseDate = new Date(movie.InternationalReleaseDate || movie.internationalreleasedate);
-        
+
         if (releaseDate <= today) {
             return res.status(400).send("Cannot sign a movie that has already premiered.");
         }
@@ -341,7 +341,7 @@ export const replaceMovie = async (req: Request, res: Response) => {
         const team = teamRes.rows[0];
 
         if (!team) return res.status(404).send("Team not found.");
-        
+
         // Ensure the person logged in owns the team
         if ((team.OwnerUserId || team.owneruserid) !== userId) {
             return res.status(403).send("You do not have Front Office authority for this team.");
@@ -377,7 +377,7 @@ export const replaceMovie = async (req: Request, res: Response) => {
         // 6. Execute the Swap
         // Remove old occupant
         await client.query(
-            'DELETE FROM "TeamMovies" WHERE "TeamId" = $1 AND "OrderDrafted" = $2', 
+            'DELETE FROM "TeamMovies" WHERE "TeamId" = $1 AND "OrderDrafted" = $2',
             [TeamId, Slot]
         );
 
@@ -432,9 +432,9 @@ export const swapMovies = async (req: Request, res: Response) => {
             WHERE t."TeamId" = $1::int 
             AND (tm."OrderDrafted" = $2::int OR tm."OrderDrafted" = $3::int)
         `;
-        
+
         const contextRes = await client.query(contextQuery, [TeamId, Slot1, Slot2]);
-        
+
         if (contextRes.rows.length < 2) {
             await client.query('ROLLBACK');
             return res.status(404).send("One or both movie slots not found on this team.");
@@ -464,21 +464,21 @@ export const swapMovies = async (req: Request, res: Response) => {
         }
 
         // 4. PERFORM THE SWAP (Using explicit ::int casting to fix your error)
-        
+
         // Step A: Move Slot1 to temporary placeholder (-1)
         await client.query(`
             UPDATE "TeamMovies" 
             SET "OrderDrafted" = -1 
-            WHERE "TeamId" = $1::int AND "OrderDrafted" = $2::int`, 
+            WHERE "TeamId" = $1::int AND "OrderDrafted" = $2::int`,
             [TeamId, Slot1]
         );
-        
+
         // Step B: Move Slot2 into Slot1's position
         await client.query(`
             UPDATE "TeamMovies" 
             SET "OrderDrafted" = $1::int, 
-                "IsStarting" = CASE WHEN $1::int <= $3::int THEN 1 ELSE 0 END 
-            WHERE "TeamId" = $4::int AND "OrderDrafted" = $2::int`, 
+                "IsStarting" = CASE WHEN $1::int <= $3::int THEN TRUE ELSE FALSE END 
+            WHERE "TeamId" = $4::int AND "OrderDrafted" = $2::int`,
             [Slot1, Slot2, startingLimit, TeamId]
         );
 
@@ -486,8 +486,8 @@ export const swapMovies = async (req: Request, res: Response) => {
         await client.query(`
             UPDATE "TeamMovies" 
             SET "OrderDrafted" = $1::int, 
-                "IsStarting" = CASE WHEN $1::int <= $3::int THEN 1 ELSE 0 END 
-            WHERE "TeamId" = $4::int AND "OrderDrafted" = -1`, 
+                "IsStarting" = CASE WHEN $1::int <= $3::int THEN TRUE ELSE FALSE END 
+            WHERE "TeamId" = $4::int AND "OrderDrafted" = -1`,
             [Slot2, Slot1, startingLimit, TeamId]
         );
 
@@ -527,8 +527,8 @@ export const updateTeam = async (req: Request, res: Response) => {
         `;
 
         const { rows } = await pool.query(query, [
-            TeamName, 
-            parseInt(teamId as string), 
+            TeamName,
+            parseInt(teamId as string),
             userId
         ]);
 
