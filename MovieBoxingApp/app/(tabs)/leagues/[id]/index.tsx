@@ -139,6 +139,23 @@ export default function LeagueDetails() {
         });
     };
 
+    const handleSearchMovies = async (query: string) => {
+    try {
+        const results = await apiRequest<any[]>(`/movies/search?q=${query}`, { 
+            method: 'POST', 
+            body: JSON.stringify({ 
+                StartDate: leagueInfo?.StartDate, 
+                EndDate: leagueInfo?.EndDate,
+                LeagueId: id // Pass LeagueId to check for existing owners
+            }) 
+        });
+        return results;
+    } catch (err) {
+        console.error("Search Error:", err);
+        return [];
+    }
+};
+
     if (loading || !leagueInfo) {
         return (
             <View className="flex-1 bg-slate-950 items-center justify-center">
@@ -317,7 +334,7 @@ export default function LeagueDetails() {
                     startingSlots={STARTING_SLOTS}
                     totalSlots={TOTAL_SLOTS}
                     onSwap={handleSwapAction}
-                    searchMovies={async (q) => await apiRequest(`/movies/search?q=${q}`, { method: 'POST', body: JSON.stringify({ StartDate: leagueInfo.StartDate, EndDate: leagueInfo.EndDate }) })}
+                    searchMovies={handleSearchMovies}
                 />
             )}
 
