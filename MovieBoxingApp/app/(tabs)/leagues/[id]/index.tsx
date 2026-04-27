@@ -29,6 +29,7 @@ import { FrontOfficeModal } from '../../../../src/components/FrontOfficeModal';
 import { LeagueData, LeagueTeam, MoviePick } from '../../../../src/types/league';
 import '../../../../global.css';
 import { JoinLeagueModal } from '@/src/components/JoinLeagueModal';
+import { useAuth } from '@/src/context/AuthContext';
 
 const formatCurrency = (rev: number) => {
     if (rev >= 1000000000) return `$${(rev / 1000000000).toFixed(3)}B`;
@@ -38,6 +39,7 @@ const formatCurrency = (rev: number) => {
 export default function LeagueDetails() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
+    const { session, loading: authLoading } = useAuth();
 
     // Data States
     const [leagueInfo, setLeagueInfo] = useState<LeagueData | null>(null);
@@ -83,7 +85,7 @@ export default function LeagueDetails() {
     const handleBack = () => router.back();
 
     // Mock current user check (Replace '1' with your auth logic if needed)
-    const userTeam = useMemo(() => teams.find(t => t.OwnerUserId === 1), [teams]);
+    const userTeam = useMemo(() => teams.find(t => t.OwnerUserId === Number(session?.user?.userId)), [teams]);
 
     const handleSwapAction = async (slot1: number, slot2: number) => {
         if (!userTeam) return;
@@ -100,6 +102,7 @@ export default function LeagueDetails() {
             Alert.alert("Ref Stopped the Fight", err.message || "An unexpected error occurred.");
         } finally {
             setIsSubmitting(false);
+            onRefresh();
         }
     };
 

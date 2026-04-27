@@ -37,7 +37,7 @@ export const assignMovie = async (req: Request, res: Response) => {
 
         const leagueId = league.LeagueId || league.leagueid;
         const startingNumber = league.StartingNumber || league.startingnumber;
-        const isStarting = SlotNumber <= startingNumber ? 1 : 0;
+        const IsStarting = SlotNumber <= startingNumber ? 1 : 0;
 
         // 3. Start Transaction
         await client.query('BEGIN');
@@ -68,7 +68,7 @@ export const assignMovie = async (req: Request, res: Response) => {
         await client.query(insertQuery, [
             TeamId,
             internalMovieId,
-            isStarting,
+            IsStarting,
             SlotNumber,
             leagueId
         ]);
@@ -349,7 +349,7 @@ export const replaceMovie = async (req: Request, res: Response) => {
 
         const leagueId = team.LeagueId || team.leagueid;
         const startingNumber = team.StartingNumber || team.startingnumber;
-        const isStarting = Slot <= startingNumber;
+        const IsStarting = Slot <= startingNumber;
 
         await client.query('BEGIN');
 
@@ -383,10 +383,10 @@ export const replaceMovie = async (req: Request, res: Response) => {
 
         // Add new movie
         const insertQuery = `
-            INSERT INTO "TeamMovies" ("TeamId", "MovieId", "DateAdded", "isStarting", "OrderDrafted", "LeagueId")
+            INSERT INTO "TeamMovies" ("TeamId", "MovieId", "DateAdded", "IsStarting", "OrderDrafted", "LeagueId")
             VALUES ($1, $2, NOW(), $3, $4, $5)
         `;
-        await client.query(insertQuery, [TeamId, internalMovieId, isStarting, Slot, leagueId]);
+        await client.query(insertQuery, [TeamId, internalMovieId, IsStarting, Slot, leagueId]);
 
         await client.query('COMMIT');
         return res.status(200).send("Transaction Complete! Movie swapped.");
@@ -477,7 +477,7 @@ export const swapMovies = async (req: Request, res: Response) => {
         await client.query(`
             UPDATE "TeamMovies" 
             SET "OrderDrafted" = $1::int, 
-                "isStarting" = CASE WHEN $1::int <= $3::int THEN 1 ELSE 0 END 
+                "IsStarting" = CASE WHEN $1::int <= $3::int THEN 1 ELSE 0 END 
             WHERE "TeamId" = $4::int AND "OrderDrafted" = $2::int`, 
             [Slot1, Slot2, startingLimit, TeamId]
         );
@@ -486,7 +486,7 @@ export const swapMovies = async (req: Request, res: Response) => {
         await client.query(`
             UPDATE "TeamMovies" 
             SET "OrderDrafted" = $1::int, 
-                "isStarting" = CASE WHEN $1::int <= $3::int THEN 1 ELSE 0 END 
+                "IsStarting" = CASE WHEN $1::int <= $3::int THEN 1 ELSE 0 END 
             WHERE "TeamId" = $4::int AND "OrderDrafted" = -1`, 
             [Slot2, Slot1, startingLimit, TeamId]
         );

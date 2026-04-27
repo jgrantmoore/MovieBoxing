@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert, RefreshControl } from 'react-native';
 import { useAuth } from '../../../src/context/AuthContext';
 import { useRouter } from 'expo-router';
 import { Check, X, ArrowRightLeft, Clock, ShieldAlert } from 'lucide-react-native';
@@ -11,9 +11,11 @@ export default function TradeCenter() {
     
     const [trades, setTrades] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false); // State for pull-to-refresh
     const [processingId, setProcessingId] = useState<number | null>(null);
 
-    const fetchTrades = async () => {
+    const fetchTrades = async (showRefresher = false) => {
+        if (showRefresher) setRefreshing(true);
         try {
             const data = await apiRequest<any[]>('/trades/pending');
             setTrades(data || []);
@@ -21,8 +23,14 @@ export default function TradeCenter() {
             console.error("Fetch Trades Error:", err);
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     };
+
+    // Pull-to-refresh handler
+    const onRefresh = useCallback(() => {
+        fetchTrades(true);
+    }, []);
 
     useEffect(() => {
         if (session?.user) fetchTrades();
@@ -37,7 +45,7 @@ export default function TradeCenter() {
             });
             
             Alert.alert("Success", action === 'accept' ? "Trade finalized!" : "Trade declined.");
-            fetchTrades(); // Refresh list
+            fetchTrades(); // Refresh list after action
         } catch (err: any) {
             Alert.alert("Error", err.message || "Action failed.");
         } finally {
@@ -64,12 +72,23 @@ export default function TradeCenter() {
                 <Text className="text-5xl font-black uppercase italic tracking-tighter text-white">
                     TRADE <Text className="text-red-600">CENTER</Text>
                 </Text>
-                <Text className="text-neutral-500 font-mono uppercase tracking-widest text-[10px] mt-2">
-                    {trades.length} Active Negotiations
+                <Text className="text-neutral-500 font-mono uppercase tracking-widest text-[12px] mt-2">
+                    {trades.length} Pending Trades
                 </Text>
             </View>
 
-            <ScrollView className="flex-1 px-6 pt-6" showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                className="flex-1 px-6 pt-6" 
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl 
+                        refreshing={refreshing} 
+                        onRefresh={onRefresh} 
+                        tintColor="#dc2626" // Red spinner for iOS
+                        colors={["#dc2626"]} // Red spinner for Android
+                    />
+                }
+            >
                 {trades.length === 0 ? (
                     <View className="mt-20 items-center opacity-20">
                         <ArrowRightLeft size={64} color="white" />
