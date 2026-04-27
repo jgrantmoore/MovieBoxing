@@ -407,7 +407,6 @@ export const replaceMovie = async (req: Request, res: Response) => {
 export const swapMovies = async (req: Request, res: Response) => {
     const { TeamId, Slot1, Slot2 } = req.body;
 
-    // 1. Basic Validation
     if (!TeamId || Slot1 === undefined || Slot2 === undefined) {
         return res.status(400).send("Missing TeamId, Slot1, or Slot2");
     }
@@ -415,89 +414,57 @@ export const swapMovies = async (req: Request, res: Response) => {
     const client = await pool.connect();
 
     try {
-        await client.query('BEGIN');
-
-        // 2. Fetch League Rules and specific Movie details
-        // We need the StartingNumber to know which slots (1-5, etc.) actually count for points
+        // 1. Get starting limit (and validate existence)
         const contextQuery = `
-            SELECT 
-                l."StartingNumber", 
-                tm."OrderDrafted", 
-                m."InternationalReleaseDate", 
-                m."Title"
+            SELECT l."StartingNumber", tm."OrderDrafted", m."InternationalReleaseDate", m."Title"
             FROM "Teams" t
             JOIN "Leagues" l ON t."LeagueId" = l."LeagueId"
             JOIN "TeamMovies" tm ON t."TeamId" = tm."TeamId"
             JOIN "Movies" m ON tm."MovieId" = m."MovieId"
-            WHERE t."TeamId" = $1::int 
-            AND (tm."OrderDrafted" = $2::int OR tm."OrderDrafted" = $3::int)
+            WHERE t."TeamId" = $1 AND (tm."OrderDrafted" = $2 OR tm."OrderDrafted" = $3)
         `;
-
         const contextRes = await client.query(contextQuery, [TeamId, Slot1, Slot2]);
 
         if (contextRes.rows.length < 2) {
-            await client.query('ROLLBACK');
-            return res.status(404).send("One or both movie slots not found on this team.");
+            return res.status(404).send("One or both slots are empty.");
         }
 
-        // Handle Postgres property case-insensitivity
         const startingLimit = contextRes.rows[0].StartingNumber || contextRes.rows[0].startingnumber;
+
+        // 2. Perform Release Date Check (Existing logic)
         const today = new Date();
-
-        // 3. RELEASE CHECK: Prevents swapping a released movie from Bench -> Starter
         for (const movie of contextRes.rows) {
-            const currentSlot = movie.OrderDrafted || movie.orderdrafted;
-            const targetSlot = (currentSlot === Slot1) ? Slot2 : Slot1;
-
-            const isCurrentlyBench = currentSlot > startingLimit;
-            const isTargetStarter = targetSlot <= startingLimit;
-
-            if (isCurrentlyBench && isTargetStarter) {
-                const releaseDateRaw = movie.InternationalReleaseDate || movie.internationalreleasedate;
-                if (new Date(releaseDateRaw) <= today) {
-                    await client.query('ROLLBACK');
-                    return res.status(400).send(
-                        `Illegal Move: "${movie.Title || movie.title}" is already released and cannot move to a starter slot.`
-                    );
+            const current = movie.OrderDrafted || movie.orderdrafted;
+            const target = current === Slot1 ? Slot2 : Slot1;
+            if (current > startingLimit && target <= startingLimit) {
+                if (new Date(movie.InternationalReleaseDate || movie.internationalreleasedate) <= today) {
+                    return res.status(400).send(`Illegal Move: ${movie.Title} has already released.`);
                 }
             }
         }
 
-        // 4. PERFORM THE SWAP (Using explicit ::int casting to fix your error)
+        // 3. THE SINGLE STATEMENT SWAP
+        const swapQuery = `
+            UPDATE "TeamMovies"
+            SET 
+                "OrderDrafted" = CASE 
+                    WHEN "OrderDrafted" = $1 THEN $2 
+                    ELSE $1 
+                END,
+                "IsStarting" = CASE 
+                    WHEN (CASE WHEN "OrderDrafted" = $1 THEN $2 ELSE $1 END) <= $3 THEN TRUE 
+                    ELSE FALSE 
+                END
+            WHERE "TeamId" = $4 AND "OrderDrafted" IN ($1, $2)
+        `;
 
-        // Step A: Move Slot1 to temporary placeholder (-1)
-        await client.query(`
-            UPDATE "TeamMovies" 
-            SET "OrderDrafted" = -1 
-            WHERE "TeamId" = $1::int AND "OrderDrafted" = $2::int`,
-            [TeamId, Slot1]
-        );
+        await client.query(swapQuery, [Slot1, Slot2, startingLimit, TeamId]);
 
-        // Step B: Move Slot2 into Slot1's position
-        await client.query(`
-            UPDATE "TeamMovies" 
-            SET "OrderDrafted" = $1::int, 
-                "IsStarting" = CASE WHEN $1::int <= $3::int THEN TRUE ELSE FALSE END 
-            WHERE "TeamId" = $4::int AND "OrderDrafted" = $2::int`,
-            [Slot1, Slot2, startingLimit, TeamId]
-        );
-
-        // Step C: Move placeholder (-1) into Slot2's position
-        await client.query(`
-            UPDATE "TeamMovies" 
-            SET "OrderDrafted" = $1::int, 
-                "IsStarting" = CASE WHEN $1::int <= $3::int THEN TRUE ELSE FALSE END 
-            WHERE "TeamId" = $4::int AND "OrderDrafted" = -1`,
-            [Slot2, Slot1, startingLimit, TeamId]
-        );
-
-        await client.query('COMMIT');
         return res.status(200).send("Swap successful");
 
     } catch (err) {
-        await client.query('ROLLBACK');
         console.error("Swap Error:", err);
-        return res.status(500).send("Database error during swap.");
+        return res.status(500).send("Database error.");
     } finally {
         client.release();
     }
