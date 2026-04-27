@@ -72,7 +72,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
         
         <View className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/80 border border-white/10">
           <Text className="text-[8px] font-black uppercase text-white tracking-widest">
-            {isBench ? 'Bench' : 'Start'}
+            {isBench ? 'Bench' : 'Starts'}
           </Text>
         </View>
       </View>

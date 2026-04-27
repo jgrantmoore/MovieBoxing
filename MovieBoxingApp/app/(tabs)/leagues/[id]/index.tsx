@@ -49,7 +49,7 @@ export default function LeagueDetails() {
     // UI States
     const [openBench, setOpenBench] = useState<Set<number>>(new Set());
     const [isFrontOfficeOpen, setIsFrontOfficeOpen] = useState(false);
-    const [isJoinModalOpen, setIsJoinModalOpen] = useState(true);
+    const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Refs for scrolling logic
@@ -70,7 +70,6 @@ export default function LeagueDetails() {
         } catch (err) {
             console.error(err);
         } finally {
-            console.log("Joined = " + leagueInfo?.Joined);
             setLoading(false);
             setRefreshing(false);
         }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Trophy, Home, User } from 'lucide-react-native';
+import { Trophy, Home, User, ArrowRightLeft } from 'lucide-react-native';
 import { HeaderLogo } from '../../src/components/HeaderLogo';
 
 export default function TabLayout() {
@@ -51,6 +51,13 @@ export default function TabLayout() {
         name="leagues/[id]"
         options={{
           href: null, // <--- Makes it not show in tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="trades/index"
+        options={{
+          title: 'Trades',
+          tabBarIcon: ({ color }) => <ArrowRightLeft color={color} size={24} />,
         }}
       />
       <Tabs.Screen
