@@ -285,7 +285,7 @@ export default function LeagueDetails() {
                     </View>
                 }
                 renderItem={({ item: team }) => {
-                    const isUser = team.OwnerUserId === 1;
+                    const isUser = team.OwnerUserId === session?.user?.userId;
                     const isBenchOpen = openBench.has(team.TeamId);
                     const totalBoxOffice = (team.Picks || []).reduce((sum: number, p: MoviePick) => p.OrderDrafted <= STARTING_SLOTS ? sum + (p.BoxOffice || 0) : sum, 0);
                     const displaySlots = isBenchOpen ? TOTAL_SLOTS : STARTING_SLOTS;

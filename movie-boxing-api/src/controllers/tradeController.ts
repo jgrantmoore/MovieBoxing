@@ -109,13 +109,13 @@ export const acceptTrade = async (req: Request, res: Response) => {
 
         // ATOMIC SWAP
         await client.query(
-            `UPDATE "TeamMovies" SET "TeamId" = $1 WHERE "TeamId" = $2 AND "MovieId" = $3`,
-            [trade.TargetTeamId, trade.ProposingTeamId, trade.OfferedMovieId]
+            `UPDATE "TeamMovies" SET "MovieId" = $1 WHERE "TeamId" = $2 AND "MovieId" = $3`,
+            [trade.RequestedMovieId, trade.ProposingTeamId, trade.OfferedMovieId]
         );
 
         await client.query(
-            `UPDATE "TeamMovies" SET "TeamId" = $1 WHERE "TeamId" = $2 AND "MovieId" = $3`,
-            [trade.ProposingTeamId, trade.TargetTeamId, trade.RequestedMovieId]
+            `UPDATE "TeamMovies" SET "MovieId" = $1 WHERE "TeamId" = $2 AND "MovieId" = $3`,
+            [trade.OfferedMovieId, trade.TargetTeamId, trade.RequestedMovieId]
         );
 
         // Update trade status
