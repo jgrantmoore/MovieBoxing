@@ -205,7 +205,7 @@ export const getPendingTrades = async (req: Request, res: Response) => {
                    m2."Title" as "RequestedMovieTitle", m2."PosterUrl" as "RequestedPoster",
                    tp."TeamName" as "ProposingTeamName", tp."OwnerUserId" as "ProposingOwnerUserId",
                    tt."TeamName" as "TargetTeamName", tt."OwnerUserId" as "TargetOwnerUserId"
-                   l."LeagueId", l."Name" as "LeagueName"
+                   l."LeagueId", l."LeagueName"
             FROM "TradeProposals" t
             JOIN "Teams" tp ON t."ProposingTeamId" = tp."TeamId"
             JOIN "Teams" tt ON t."TargetTeamId" = tt."TeamId"

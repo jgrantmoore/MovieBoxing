@@ -118,7 +118,7 @@ export default function TradeCenter() {
                                 </View>
 
                                 {/* The Swap Display */}
-                                <View className="flex-row items-center justify-between">
+                                <View className={`${isIncoming ? 'flex-row-reverse' : 'flex-row'} items-center justify-between`}>
                                     {/* Offered */}
                                     <View className="items-center flex-1">
                                         <View className="w-16 h-24 bg-black rounded-lg overflow-hidden border border-neutral-800 mb-2">
@@ -153,9 +153,10 @@ export default function TradeCenter() {
                                 </View>
 
                                 {/* Incentives / Notes */}
-                                {trade.Incentive && (
-                                    <View className="mt-4 p-3 bg-black/40 rounded-xl border border-neutral-800/50">
-                                        <Text className="text-neutral-400 text-[10px] italic font-medium">"{trade.Incentive}"</Text>
+                                {trade.Incentive || (
+                                    <View className="mt-4 p-3 rounded-xl ">
+                                        <Text className="text-neutral-400 text-xs italic font-bold uppercase">Additional Incentive</Text>
+                                        <Text className="text-white text-lg italic font-medium">${trade.Incentive}123M</Text>
                                     </View>
                                 )}
 
