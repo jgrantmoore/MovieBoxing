@@ -30,6 +30,7 @@ import { LeagueData, LeagueTeam, MoviePick } from '../../../../src/types/league'
 import '../../../../global.css';
 import { JoinLeagueModal } from '@/src/components/JoinLeagueModal';
 import { useAuth } from '@/src/context/AuthContext';
+import { LeagueSettingsModal } from '@/src/components/LeagueSettingsModal';
 
 const formatCurrency = (rev: number) => {
     if (rev >= 1000000000) return `$${(rev / 1000000000).toFixed(3)}B`;
@@ -52,6 +53,7 @@ export default function LeagueDetails() {
     const [openBench, setOpenBench] = useState<Set<number>>(new Set());
     const [isFrontOfficeOpen, setIsFrontOfficeOpen] = useState(false);
     const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+    const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Refs for scrolling logic
@@ -106,14 +108,14 @@ export default function LeagueDetails() {
         }
     };
 
-    const confirmLeaveLeague = () => {
+    const confirmLeaveLeague = (teamId: number) => {
         Alert.alert("Resign Position?", "Are you sure you want to leave this league? This cannot be undone.", [
             { text: "Cancel", style: "cancel" },
             {
                 text: "Leave League", style: "destructive", onPress: async () => {
                     try {
-                        await apiRequest(`/leagues/leave`, { method: 'POST', body: JSON.stringify({ id }) });
-                        router.replace('/leagues');
+                        await apiRequest(`/teams/delete?id=${teamId}`, { method: 'DELETE' });
+                        router.back();
                     } catch (err) { Alert.alert("Error", "Could not leave league."); }
                 }
             }
@@ -203,7 +205,7 @@ export default function LeagueDetails() {
                                 )}
                             </View>
                             {leagueInfo.isAdmin && (
-                                <TouchableOpacity onPress={() => router.push(`/leagues/${id}/settings`)} className="bg-neutral-800 p-3 rounded-xl border border-neutral-700">
+                                <TouchableOpacity onPress={() => setIsSettingsModalOpen(true)} className="bg-neutral-800 p-3 rounded-xl border border-neutral-700">
                                     <Settings size={20} color="white" />
                                 </TouchableOpacity>
                             )}
@@ -213,7 +215,11 @@ export default function LeagueDetails() {
                             <RuleItem icon={<Trophy size={16} color="#dc2626" />} label="Starters" value={STARTING_SLOTS} />
                             <RuleItem icon={<Armchair size={16} color="#dc2626" />} label="Bench" value={BENCH_SLOTS} />
                             <RuleItem icon={<Users size={16} color="#dc2626" />} label="Commish" value={leagueInfo.AdminName} />
-                            <RuleItem icon={<Calendar size={16} color="#dc2626" />} label="Ends" value={new Date(leagueInfo.EndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
+                            <RuleItem icon={<Calendar size={16} color="#dc2626" />} label="Ends" value={new Date(leagueInfo.EndDate).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                timeZone: 'UTC'
+                            })} />
                         </View>
 
                         <View className="flex-row bg-neutral-900 rounded-2xl p-1 mb-6">
@@ -256,17 +262,29 @@ export default function LeagueDetails() {
                                         </View>
                                         <TouchableOpacity className="text-neutral-500 font-mono text-[10px] mt-1 uppercase tracking-widest" onPress={() => router.navigate(`/profile/${team.OwnerUserId}`)}>
                                             <Text className="text-white font-bold text-[10px] mt-1 uppercase italic tracking-widest">
-                                            Manager: {team.Owner} 
+                                                Manager: {team.Owner}
                                             </Text>
                                         </TouchableOpacity>
 
-                                        {isUser && leagueInfo.HasDrafted && (
+                                        {isUser && (
                                             <View className="flex-row gap-2 mt-4">
-                                                <TouchableOpacity onPress={() => setIsFrontOfficeOpen(true)} className="bg-red-600 px-4 py-2 rounded-xl flex-row items-center">
-                                                    <Pencil size={14} color="white" />
-                                                    <Text className="text-white text-[10px] font-black uppercase italic ml-2">Front Office</Text>
+                                                <TouchableOpacity
+                                                    onPress={() => setIsFrontOfficeOpen(true)}
+                                                    disabled={!leagueInfo.HasDrafted}
+                                                    className={`px-4 py-2 rounded-xl flex-row items-center ${leagueInfo.HasDrafted ? 'bg-red-600' : 'bg-neutral-800 opacity-50'
+                                                        }`}
+                                                >
+                                                    <Pencil size={14} color={leagueInfo.HasDrafted ? "white" : "#737373"} />
+                                                    <Text className={`text-[10px] font-black uppercase italic ml-2 ${leagueInfo.HasDrafted ? 'text-white' : 'text-neutral-500'
+                                                        }`}>
+                                                        Front Office
+                                                    </Text>
                                                 </TouchableOpacity>
-                                                <TouchableOpacity onPress={confirmLeaveLeague} className="bg-neutral-800 px-3 py-2 rounded-xl border border-neutral-700">
+
+                                                <TouchableOpacity
+                                                    onPress={() => confirmLeaveLeague(team.TeamId)}
+                                                    className="bg-neutral-900/50 px-3 py-2 rounded-xl border border-neutral-800"
+                                                >
                                                     <Trash2 size={14} color="#737373" />
                                                 </TouchableOpacity>
                                             </View>
@@ -346,7 +364,17 @@ export default function LeagueDetails() {
                 visible={isJoinModalOpen}
                 leagueInfo={leagueInfo}
                 onClose={() => { setIsJoinModalOpen(false) }}
+                onUpdateSuccess={fetchLeagueData}
             />
+
+            {leagueInfo.isAdmin && (
+                <LeagueSettingsModal
+                    visible={leagueInfo.isAdmin && isSettingsModalOpen}
+                    onClose={() => setIsSettingsModalOpen(false)}
+                    leagueId={leagueInfo.LeagueId}
+                    onUpdateSuccess={fetchLeagueData}
+                />
+            )}
 
         </View>
     );

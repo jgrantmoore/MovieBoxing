@@ -6,6 +6,7 @@ import { createLeague,
     getLeagueInfo, 
     getLeagueReleaseOrder,
     getMyLeagues,
+    leagueSnapshotUpdate,
     searchLeagues,
     updateLeague
 } from '../controllers/leagueController.js';
@@ -31,6 +32,8 @@ router.get('/my', authenticateToken, requireAuth, getMyLeagues);
 router.get('/search', authenticateToken, searchLeagues);
 // /api/leagues/update?id=X
 router.put('/update', authenticateToken, requireAuth, updateLeague);
+// /api/leagues/snapshot (TEST ENDPOINT)
+router.get('/snapshot', leagueSnapshotUpdate);
 
 
 export default router;

@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
-import { 
-    ScrollView, 
-    View, 
-    Text, 
-    TouchableOpacity, 
-    ActivityIndicator, 
-    RefreshControl 
+import {
+    ScrollView,
+    View,
+    Text,
+    TouchableOpacity,
+    ActivityIndicator,
+    RefreshControl
 } from 'react-native';
-import Animated, { 
-    LinearTransition, 
-    FadeInLeft, 
-    FadeOutRight 
+import Animated, {
+    LinearTransition,
+    FadeInLeft,
+    FadeOutRight
 } from 'react-native-reanimated';
 import { Link, router } from 'expo-router';
 import { MovieCard } from '../../../src/components/MovieCard';
@@ -66,7 +66,7 @@ export default function Leagues() {
         if (isClosing) {
             // 1. Force scroll back to start
             scrollRefs.current[teamId]?.scrollTo({ x: 0, animated: true });
-            
+
             // 2. Wait for scroll animation (~300ms) before removing items from layout
             await new Promise(resolve => setTimeout(resolve, 300));
         }
@@ -87,13 +87,13 @@ export default function Leagues() {
     }
 
     return (
-        <ScrollView 
+        <ScrollView
             className="flex-1 bg-slate-950"
             refreshControl={
-                <RefreshControl 
-                    refreshing={refreshing} 
-                    onRefresh={onRefresh} 
-                    tintColor="#dc2626" 
+                <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor="#dc2626"
                 />
             }
         >
@@ -136,35 +136,39 @@ export default function Leagues() {
                             );
 
                             const isBenchOpen = openBench.has(team.TeamId);
-                            const displaySlots = isBenchOpen 
-                                ? (team.StartingNumber + team.BenchNumber) 
+                            const displaySlots = isBenchOpen
+                                ? (team.StartingNumber + team.BenchNumber)
                                 : team.StartingNumber;
 
                             return (
                                 <View key={team.TeamId} className="mb-10">
-                                    <View className="flex-row justify-between items-center mb-4">
-                                        <View className="flex-1">
-                                            <TouchableOpacity
-                                                onPress={() => router.push({
-                                                    pathname: "/(tabs)/leagues/[id]",
-                                                    params: { id: team.LeagueId }
-                                                })}
-                                            >
+                                    <TouchableOpacity
+                                        onPress={() => router.push({
+                                            pathname: "/(tabs)/leagues/[id]",
+                                            params: { id: team.LeagueId }
+                                        })}
+                                    >
+                                        <View className="flex-row justify-between items-center mb-4">
+
+                                            <View className="flex-1">
+
                                                 <Text className="text-2xl font-black uppercase italic text-white">
                                                     {team.LeagueName}
                                                 </Text>
-                                            </TouchableOpacity>
-                                            <Text className="text-neutral-500 font-mono text-[10px] uppercase">
-                                                {team.TeamName}
-                                            </Text>
+
+                                                <Text className="text-white font-bold text-[10px] mt-1 uppercase italic tracking-widest">
+                                                    {team.TeamName}
+                                                </Text>
+                                            </View>
+
+                                            <View className="items-end">
+                                                <Text className="text-xl font-mono font-black text-red-600">
+                                                    ${(totalBoxOffice / 1000000).toFixed(1)}M
+                                                </Text>
+                                                <Text className="text-[8px] text-neutral-600 uppercase font-bold tracking-widest">Team Total</Text>
+                                            </View>
                                         </View>
-                                        <View className="items-end">
-                                            <Text className="text-xl font-mono font-black text-red-600">
-                                                ${(totalBoxOffice / 1000000).toFixed(1)}M
-                                            </Text>
-                                            <Text className="text-[8px] text-neutral-600 uppercase font-bold tracking-widest">Team Total</Text>
-                                        </View>
-                                    </View>
+                                    </TouchableOpacity>
 
                                     {/* Horizontal Swipeable Roster */}
                                     <View className="mx-[-24px]">

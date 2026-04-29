@@ -66,6 +66,7 @@ export const getMovies = async (req: Request, res: Response) => {
 /**
  * Global update for all movies in the DB.
  * Syncs Box Office and Release Dates from TMDB.
+ * This is a TEST ENDPOINT
  */
 export const localBoxOfficeUpdate = async (req: Request, res: Response) => {
     // Run the service logic

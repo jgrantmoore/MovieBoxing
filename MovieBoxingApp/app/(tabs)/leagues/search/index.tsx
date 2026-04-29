@@ -72,9 +72,9 @@ export default function LeagueSearch() {
                     <View className="relative flex-row items-center bg-black border border-neutral-800 rounded-2xl px-5 py-4">
                         <Search className="text-neutral-500" size={20} />
                         <TextInput
-                            placeholder="Search by league name..."
+                            placeholder="SEARCH BY LEAGUE NAME..."
                             placeholderTextColor="#404040"
-                            className="flex-1 ml-3 text-white text-lg font-bold uppercase italic tracking-tight"
+                            className="flex-1 ml-3 text-white text-lg font-bold uppercase italic tracking-tight uppercase"
                             value={query}
                             onChangeText={setQuery}
                             autoCorrect={false}

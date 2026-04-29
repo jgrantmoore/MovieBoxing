@@ -13,17 +13,20 @@ interface JoinLeagueProps {
     visible: boolean;
     leagueInfo: LeagueData;
     onClose: () => void;
+    onUpdateSuccess: () => void;
 }
 
 export const JoinLeagueModal = ({
     visible,
     leagueInfo,
     onClose,
+    onUpdateSuccess
 }: JoinLeagueProps) => {
     const { session } = useAuth();
     const [teamName, setTeamName] = useState(session?.user?.displayName ? `${session.user.displayName}'s Team` : '');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [joining, setJoining] = useState(false);
 
     const reset = () => {
         setPassword('');
@@ -32,6 +35,8 @@ export const JoinLeagueModal = ({
     };
 
     const handleJoin = () => {
+        setJoining(true);
+
         if (leagueInfo.HasDrafted) {
             Alert.alert("League Locked", "This league has already drafted. You cannot join at this time.");
             return;
@@ -50,9 +55,12 @@ export const JoinLeagueModal = ({
                 LeaguePassword: leagueInfo.isPrivate ? password : undefined
             })
         }).then(() => {
+            setJoining(false);
             Alert.alert("Success", "You have joined the league!");
             reset();
+            onUpdateSuccess();
         }).catch((err) => {
+            setJoining(false);
             console.error(err);
             Alert.alert("Error", "Could not join league. Please check your password and try again.");
         });
@@ -170,13 +178,14 @@ export const JoinLeagueModal = ({
                         onPress={handleJoin}
                     >
                         <Text className="text-white font-black uppercase italic text-center text-lg tracking-tight">
-                            Confirm Registration
+                            {joining ? "Joining..." : "Confirm Registration"}
                         </Text>
                     </TouchableOpacity>
-
-                    <Text className="text-neutral-600 text-[10px] text-center mt-6 font-mono uppercase">
-                        By joining, you will be enrolled for the upcoming draft and season. Make sure to show up on draft day!
-                    </Text>
+                    <View className="px-4 py-3">
+                        <Text className="text-neutral-600 text-[10px] text-center mt-4 font-mono uppercase text-wrap">
+                            By joining, you will be enrolled for the upcoming draft and season. Make sure to show up on draft day!
+                        </Text>
+                    </View>
                 </ScrollView>
             </KeyboardAvoidingView>
         </Modal>

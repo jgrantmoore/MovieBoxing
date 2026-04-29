@@ -35,7 +35,7 @@ function RootLayoutNav() {
     // Wait for both Auth and First Launch check to finish
     if (loading || isFirstLaunch === null) return;
 
-    const inAuthGroup = segments[0] === '(auth)' || segments[0] === 'privacy';
+    const inAuthGroup = segments[0] === '(auth)';
 
     if (isFirstLaunch) {
       router.replace('/register');
@@ -59,6 +59,7 @@ function RootLayoutNav() {
     >
       {/* Define your privacy screen specifically if you want to customize it */}
       <Stack.Screen name="privacy" options={{ headerShown: false }} />
+      <Stack.Screen name="contact" options={{ headerShown: false }} />
     </Stack>
   );
 }

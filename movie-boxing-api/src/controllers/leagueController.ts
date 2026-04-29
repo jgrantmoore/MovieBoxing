@@ -1,6 +1,7 @@
 import { type Request, type Response } from 'express';
 import { pool } from '../config/db.js';
 import * as bcrypt from 'bcrypt';
+import { snapshotEndingLeagues } from '../services/leagueService.js';
 
 /**
  * Create a new league and automatically assign the creator a team.
@@ -160,14 +161,19 @@ export const getLeague = async (req: Request, res: Response) => {
             SELECT 
                 l.*, admin_u."DisplayName" AS "AdminName",
                 t."TeamId", t."TeamName", t."DraftOrder" ,u."UserId" as "OwnerUserId", u."DisplayName" AS "OwnerName",
-                m."MovieId", m."Title" AS "MovieTitle", m."BoxOffice", m."PosterUrl", m."TMDBId",
-                m."InternationalReleaseDate", p."OrderDrafted", p."DateAdded"
+                m."MovieId", m."Title" AS "MovieTitle", m."PosterUrl", m."TMDBId",
+                m."InternationalReleaseDate", p."OrderDrafted", p."DateAdded",
+                -- If snapshot exists for the league's end date, use it. Otherwise live data.
+                COALESCE(lms."FrozenBoxOffice", m."BoxOffice") AS "DisplayBoxOffice"
             FROM "Leagues" l
             JOIN "Users" admin_u ON l."AdminUserId" = admin_u."UserId" 
             JOIN "Teams" t ON l."LeagueId" = t."LeagueId"
             JOIN "Users" u ON t."OwnerUserId" = u."UserId"
             LEFT JOIN "TeamMovies" p ON t."TeamId" = p."TeamId"
             LEFT JOIN "Movies" m ON p."MovieId" = m."MovieId"
+            -- New Join:
+            LEFT JOIN "LeagueMovieSnapshots" lms ON m."MovieId" = lms."MovieId" 
+                AND l."EndDate"::date = lms."SnapshotDate"
             WHERE l."LeagueId" = $1
             ORDER BY t."TeamName" ASC, p."OrderDrafted" ASC;
         `;
@@ -176,59 +182,60 @@ export const getLeague = async (req: Request, res: Response) => {
         if (rows.length === 0) return res.status(404).send("League not found");
 
         const firstRow = rows[0];
+        
+        // Check if the league is officially over
+        const isOver = firstRow.LeagueWinnerId !== null;
+
         const leagueData: any = {
-            LeagueId: firstRow.LeagueId || firstRow.leagueid,
-            LeagueName: firstRow.LeagueName || firstRow.leaguename,
-            StartDate: firstRow.StartDate || firstRow.startdate,
-            EndDate: firstRow.EndDate || firstRow.enddate,
+            LeagueId: firstRow.LeagueId,
+            LeagueName: firstRow.LeagueName,
+            StartDate: firstRow.StartDate,
+            EndDate: firstRow.EndDate,
             HasDrafted: firstRow.HasDrafted,
             IsDrafting: firstRow.IsDrafting,
-            isPrivate: (firstRow.JoinPasswordHash || firstRow.joinpasswordhash) != null,
-            AdminName: firstRow.AdminName || firstRow.adminname,
-            DraftUsersTurn: firstRow.DraftUsersTurn || firstRow.draftusersturn,
+            IsOver: isOver, // Pass this to frontend
+            WinnerId: firstRow.LeagueWinnerId,
+            isPrivate: firstRow.JoinPasswordHash != null,
+            AdminName: firstRow.AdminName,
+            DraftUsersTurn: firstRow.DraftUsersTurn,
             Rules: {
-                Starting: firstRow.StartingNumber || firstRow.startingnumber,
-                Bench: firstRow.BenchNumber || firstRow.benchnumber,
-                FreeAgents: firstRow.FreeAgentsAllowed || firstRow.freeagentsallowed
+                Starting: firstRow.StartingNumber,
+                Bench: firstRow.BenchNumber,
+                FreeAgents: firstRow.FreeAgentsAllowed
             },
             Teams: []
         };
 
         if (userId > 0) {
-            leagueData.Joined = rows.some(row => (row.OwnerUserId || row.owneruserid) === userId);
-            leagueData.isAdmin = (firstRow.AdminUserId || firstRow.adminuserid) === userId;
+            leagueData.Joined = rows.some(row => row.OwnerUserId === userId);
+            leagueData.isAdmin = firstRow.AdminUserId === userId;
         }
 
         rows.forEach(row => {
-            const rowTeamId = row.TeamId || row.teamid;
+            const rowTeamId = row.TeamId;
             let team = leagueData.Teams.find((t: any) => t.TeamId === rowTeamId);
             if (!team) {
                 team = {
                     TeamId: rowTeamId,
-                    TeamName: row.TeamName || row.teamname,
-                    OwnerUserId: row.OwnerUserId || row.owneruserid,
-                    Owner: row.OwnerName || row.ownername,
-                    DraftOrder: row.DraftOrder || row.draftorder,
+                    TeamName: row.TeamName,
+                    OwnerUserId: row.OwnerUserId,
+                    Owner: row.OwnerName,
+                    DraftOrder: row.DraftOrder,
                     Picks: []
                 };
                 leagueData.Teams.push(team);
             }
             
-            const rowMovieId = row.MovieId || row.movieid;
-
-            if (row.PosterUrl == "NULL") {
-                console.log("Poster URL is null for movie: " + row.MovieTitle);
-            }
-
-            if (rowMovieId) {
+            if (row.MovieId) {
                 team.Picks.push({
-                    MovieId: rowMovieId,
-                    Title: row.MovieTitle || row.movietitle,
-                    BoxOffice: row.BoxOffice || row.boxoffice,
-                    PosterUrl: row.PosterUrl || row.posterurl,
-                    OrderDrafted: row.OrderDrafted || row.orderdrafted,
-                    ReleaseDate: row.InternationalReleaseDate || row.internationalreleasedate,
-                    TMDBId: row.TMDBId || row.tmdbid
+                    MovieId: row.MovieId,
+                    Title: row.MovieTitle,
+                    // Use the Coalesced value here!
+                    BoxOffice: row.DisplayBoxOffice, 
+                    PosterUrl: row.PosterUrl,
+                    OrderDrafted: row.OrderDrafted,
+                    ReleaseDate: row.InternationalReleaseDate,
+                    TMDBId: row.TMDBId
                 });
             }
         });
@@ -575,4 +582,14 @@ export const updateLeague = async (req: Request, res: Response) => {
         console.error(`Error updating league: ${error}`);
         return res.status(500).send("Internal server error");
     }
+};
+
+/**
+ * Manually trigger a snapshot of ending leagues.
+ * THIS IS A TEST ENDPOINT
+ */
+export const leagueSnapshotUpdate = async (req: Request, res: Response) => {
+    // Run the service logic
+    await snapshotEndingLeagues(); 
+    return res.status(200).send("Snapshot manually triggered and completed.");
 };

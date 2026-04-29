@@ -98,7 +98,7 @@ export async function syncMovieData() {
             }
             await new Promise(resolve => setTimeout(resolve, 300));
         }
-        console.log('Cron Job: Sync Finished.');
+        console.log('Cron Job: Movie Sync Finished.');
     } catch (err) {
         console.error('Critical Cron Failure:', err);
     }

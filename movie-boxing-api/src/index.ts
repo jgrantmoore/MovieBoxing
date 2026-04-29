@@ -63,8 +63,11 @@ const cronOptions = {
   timezone: "America/New_York"
 };
 
-cron.schedule('0 1 * * *', () => syncMovieData());
-cron.schedule('0 2 * * *', () => snapshotEndingLeagues());
+
+//Runs at 11:00 PM EST every day to update movie data including box office
+cron.schedule('0 3 * * *', () => syncMovieData());
+//Runs at 12:05 AM EST every day to snapshot box office for leagues that ended the previous day
+cron.schedule('5 4 * * *', () => snapshotEndingLeagues());
 app.get('/health', (req, res) => res.send('Movie Boxing API is Live!'));
 
 httpServer.listen(port, () => {
