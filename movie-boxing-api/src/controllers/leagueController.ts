@@ -104,7 +104,6 @@ export const deleteLeague = async (req: Request, res: Response) => {
         `, [leagueId]);
 
         await client.query('DELETE FROM "TeamMovies" WHERE "LeagueId" = $1', [leagueId]);
-        await client.query('DELETE FROM "LeagueMovieSnapshots" WHERE "LeagueId" = $1', [leagueId]);
         await client.query('DELETE FROM "DraftPlans" WHERE "LeagueId" = $1', [leagueId]);
         await client.query('DELETE FROM "Teams" WHERE "LeagueId" = $1', [leagueId]);
         await client.query('DELETE FROM "Leagues" WHERE "LeagueId" = $1', [leagueId]);
