@@ -227,7 +227,7 @@ export const getPendingTrades = async (req: Request, res: Response) => {
  * GET /api/trades/history
  */
 export const getTradeHistory = async (req: Request, res: Response) => {
-    const { leagueId } = req.query;
+    const { id } = req.query;
 
     try {
         const query = `
@@ -244,7 +244,7 @@ export const getTradeHistory = async (req: Request, res: Response) => {
             WHERE tp."LeagueId" = $1 AND t."Pending" = FALSE
             ORDER BY t."ProcessedAt" DESC;
         `;
-        const { rows } = await pool.query(query, [leagueId]);
+        const { rows } = await pool.query(query, [id]);
         return res.json(rows);
     } catch (error) {
         return res.status(500).send("Internal server error.");

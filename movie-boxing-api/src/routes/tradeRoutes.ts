@@ -17,7 +17,7 @@ router.post('/accept', authenticateToken, requireAuth, acceptTrade);
 router.post('/deny', authenticateToken, requireAuth, denyTrade);
 // /api/trades/pending
 router.get('/pending', authenticateToken, requireAuth, getPendingTrades);
-// /api/trades/history
+// /api/trades/history?id=leagueId
 router.get('/history', getTradeHistory);
 
 export default router;
