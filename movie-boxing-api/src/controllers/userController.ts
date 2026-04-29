@@ -94,6 +94,7 @@ export const getUser = async (req: Request, res: Response) => {
 
 /**
  * Aggregate stats for a user profile (Total Earnings, Wins, etc.)
+ * Only counts STARTER movies toward box office totals and movie counts.
  */
 export const getUserStats = async (req: Request, res: Response) => {
     const targetUserId = req.query.id;
@@ -109,40 +110,45 @@ export const getUserStats = async (req: Request, res: Response) => {
         const statsQuery = `
             SELECT 
                 u."UserId", u."Username", u."JoinDate", u."DisplayName",
+                
                 (SELECT COUNT(*) FROM "Teams" WHERE "OwnerUserId" = u."UserId") AS "LeagueCount",
+                
                 (SELECT COUNT(*) 
                  FROM "TeamMovies" tm 
                  JOIN "Teams" t ON tm."TeamId" = t."TeamId" 
-                 WHERE t."OwnerUserId" = u."UserId") AS "MovieCount",
+                 WHERE t."OwnerUserId" = u."UserId" AND tm."IsStarting" = true) AS "MovieCount",
+                
                 (SELECT COUNT(*) FROM "Leagues" WHERE "LeagueWinnerId" = u."UserId") AS "LeaguesWon",
+
+                -- NEW: TotalTrades count
+                (SELECT COUNT(*) 
+                 FROM "TradeProposals" tp
+                 JOIN "Teams" t1 ON tp."ProposingTeamId" = t1."TeamId"
+                 JOIN "Teams" t2 ON tp."TargetTeamId" = t2."TeamId"
+                 WHERE (t1."OwnerUserId" = u."UserId" OR t2."OwnerUserId" = u."UserId")
+                 AND tp."Accepted" = true) AS "TotalTrades",
+                
                 COALESCE((
                     SELECT SUM(m."BoxOffice") 
                     FROM "Movies" m
                     JOIN "TeamMovies" tm ON m."MovieId" = tm."MovieId" 
                     JOIN "Teams" t ON tm."TeamId" = t."TeamId"
-                    WHERE t."OwnerUserId" = u."UserId"
+                    WHERE t."OwnerUserId" = u."UserId" AND tm."IsStarting" = true
                 ), 0) AS "TotalEarnings"
             FROM "Users" u
             WHERE u."UserId" = $1
         `;
 
-        // 2. Recent Leagues with Rank and Activity Status
+        // 2. Recent Leagues with Rank and Activity Status (Kept same as previous update)
         const recentLeaguesQuery = `
             WITH LeagueRankings AS (
                 SELECT 
-                    t."TeamId",
-                    t."OwnerUserId",
-                    t."TeamName",
-                    l."LeagueId",
-                    l."LeagueName",
-                    l."StartDate",
-                    l."EndDate",
-                    -- Rank based on box office of STARTER movies
+                    t."TeamId", t."OwnerUserId", t."TeamName",
+                    l."LeagueId", l."LeagueName", l."StartDate", l."EndDate",
                     RANK() OVER (
                         PARTITION BY l."LeagueId" 
                         ORDER BY COALESCE(SUM(m."BoxOffice"), 0) DESC
                     ) as "PlayerRank",
-                    -- Total players in this specific league
                     COUNT(*) OVER (PARTITION BY l."LeagueId") as "TotalPlayers"
                 FROM "Teams" t
                 JOIN "Leagues" l ON t."LeagueId" = l."LeagueId"
@@ -151,13 +157,7 @@ export const getUserStats = async (req: Request, res: Response) => {
                 GROUP BY t."TeamId", l."LeagueId", l."StartDate", l."EndDate"
             )
             SELECT 
-                "TeamId",
-                "TeamName",
-                "LeagueId",
-                "LeagueName",
-                "PlayerRank",
-                "TotalPlayers",
-                -- Active if current time is between start and end dates
+                "TeamId", "TeamName", "LeagueId", "LeagueName", "PlayerRank", "TotalPlayers",
                 (CURRENT_TIMESTAMP >= "StartDate" AND CURRENT_TIMESTAMP <= "EndDate") AS "LeagueActive"
             FROM LeagueRankings
             WHERE "OwnerUserId" = $1
