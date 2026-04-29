@@ -222,6 +222,13 @@ export default function LeagueDetails() {
                             })} />
                         </View>
 
+                        {leagueInfo.LeagueWinnerId && (
+                            <View className="flex-row items-center mt-2">
+                                <Text className="text-white font-black">Winner: </Text>
+                                <Text className="text-amber-400 font-black">{leagueInfo.LeagueWinnerName}</Text>
+                            </View>
+                        )}
+
                         <View className="flex-row bg-neutral-900 rounded-2xl p-1 mb-6">
                             <TabBtn active={activeTab === 'teams'} label="Teams" icon={<LayoutGrid size={16} color={activeTab === 'teams' ? 'white' : '#737373'} />} onPress={() => setActiveTab('teams')} />
                             <TabBtn active={activeTab === 'release'} label="Schedule" icon={<ListOrdered size={16} color={activeTab === 'release' ? 'white' : '#737373'} />} onPress={() => setActiveTab('release')} />

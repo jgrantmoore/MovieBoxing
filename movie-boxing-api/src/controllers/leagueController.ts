@@ -8,11 +8,11 @@ import { snapshotEndingLeagues } from '../services/leagueService.js';
  * PROTECTED: Requires authenticateToken middleware
  */
 export const createLeague = async (req: Request, res: Response) => {
-    const adminUserId = req.user!.userId; 
+    const adminUserId = req.user!.userId;
     const body = req.body;
-    
+
     const requiredFields = [
-        'LeagueName', 'StartDate', 'EndDate', 'StartingNumber', 
+        'LeagueName', 'StartDate', 'EndDate', 'StartingNumber',
         'BenchNumber', 'PreferredReleaseDate', 'FreeAgentsAllowed'
     ];
 
@@ -159,19 +159,22 @@ export const getLeague = async (req: Request, res: Response) => {
     try {
         const query = `
             SELECT 
-                l.*, admin_u."DisplayName" AS "AdminName",
-                t."TeamId", t."TeamName", t."DraftOrder" ,u."UserId" as "OwnerUserId", u."DisplayName" AS "OwnerName",
+                l.*, 
+                admin_u."DisplayName" AS "AdminName",
+                winner_u."DisplayName" AS "LeagueWinnerName",
+                t."TeamId", t."TeamName", t."DraftOrder", 
+                u."UserId" as "OwnerUserId", u."DisplayName" AS "OwnerName",
                 m."MovieId", m."Title" AS "MovieTitle", m."PosterUrl", m."TMDBId",
                 m."InternationalReleaseDate", p."OrderDrafted", p."DateAdded",
-                -- If snapshot exists for the league's end date, use it. Otherwise live data.
+                -- Use frozen box office if snapshot exists, otherwise live data
                 COALESCE(lms."FrozenBoxOffice", m."BoxOffice") AS "DisplayBoxOffice"
             FROM "Leagues" l
             JOIN "Users" admin_u ON l."AdminUserId" = admin_u."UserId" 
+            LEFT JOIN "Users" winner_u ON l."LeagueWinnerId" = winner_u."UserId"
             JOIN "Teams" t ON l."LeagueId" = t."LeagueId"
             JOIN "Users" u ON t."OwnerUserId" = u."UserId"
             LEFT JOIN "TeamMovies" p ON t."TeamId" = p."TeamId"
             LEFT JOIN "Movies" m ON p."MovieId" = m."MovieId"
-            -- New Join:
             LEFT JOIN "LeagueMovieSnapshots" lms ON m."MovieId" = lms."MovieId" 
                 AND l."EndDate"::date = lms."SnapshotDate"
             WHERE l."LeagueId" = $1
@@ -182,67 +185,69 @@ export const getLeague = async (req: Request, res: Response) => {
         if (rows.length === 0) return res.status(404).send("League not found");
 
         const firstRow = rows[0];
-        
-        // Check if the league is officially over
-        const isOver = firstRow.LeagueWinnerId !== null;
 
+        // Format base league data
         const leagueData: any = {
-            LeagueId: firstRow.LeagueId,
-            LeagueName: firstRow.LeagueName,
-            StartDate: firstRow.StartDate,
-            EndDate: firstRow.EndDate,
-            HasDrafted: firstRow.HasDrafted,
-            IsDrafting: firstRow.IsDrafting,
-            IsOver: isOver, // Pass this to frontend
-            WinnerId: firstRow.LeagueWinnerId,
-            isPrivate: firstRow.JoinPasswordHash != null,
-            AdminName: firstRow.AdminName,
-            DraftUsersTurn: firstRow.DraftUsersTurn,
+            LeagueId: firstRow.LeagueId || firstRow.leagueid,
+            LeagueName: firstRow.LeagueName || firstRow.leaguename,
+            AdminName: firstRow.AdminName || firstRow.adminname,
+            StartDate: firstRow.StartDate || firstRow.startdate,
+            EndDate: firstRow.EndDate || firstRow.enddate,
+            HasDrafted: firstRow.HasDrafted || firstRow.hasdrafted,
+            IsDrafting: firstRow.IsDrafting || firstRow.isdrafting,
+            IsOver: (firstRow.LeagueWinnerId || firstRow.leaguewinnerid) !== null,
+            WinnerId: firstRow.LeagueWinnerId || firstRow.leaguewinnerid,
+            WinnerName: firstRow.LeagueWinnerName || firstRow.leaguewinnername,
+            isPrivate: (firstRow.JoinPasswordHash || firstRow.joinpasswordhash) != null,
+            DraftUsersTurn: firstRow.DraftUsersTurn || firstRow.draftusersturn,
             Rules: {
-                Starting: firstRow.StartingNumber,
-                Bench: firstRow.BenchNumber,
-                FreeAgents: firstRow.FreeAgentsAllowed
+                Starting: firstRow.StartingNumber || firstRow.startingnumber,
+                Bench: firstRow.BenchNumber || firstRow.benchnumber,
+                FreeAgents: firstRow.FreeAgentsAllowed || firstRow.freeagentsallowed
             },
             Teams: []
         };
 
+        // Auth-specific logic
         if (userId > 0) {
-            leagueData.Joined = rows.some(row => row.OwnerUserId === userId);
-            leagueData.isAdmin = firstRow.AdminUserId === userId;
+            leagueData.Joined = rows.some(row => (row.OwnerUserId || row.owneruserid) === userId);
+            leagueData.isAdmin = (firstRow.AdminUserId || firstRow.adminuserid) === userId;
         }
 
+        // Aggregate Teams and Picks
         rows.forEach(row => {
-            const rowTeamId = row.TeamId;
+            const rowTeamId = row.TeamId || row.teamid;
             let team = leagueData.Teams.find((t: any) => t.TeamId === rowTeamId);
+
             if (!team) {
                 team = {
                     TeamId: rowTeamId,
-                    TeamName: row.TeamName,
-                    OwnerUserId: row.OwnerUserId,
-                    Owner: row.OwnerName,
-                    DraftOrder: row.DraftOrder,
+                    TeamName: row.TeamName || row.teamname,
+                    OwnerUserId: row.OwnerUserId || row.owneruserid,
+                    Owner: row.OwnerName || row.ownername,
+                    DraftOrder: row.DraftOrder || row.draftorder,
                     Picks: []
                 };
                 leagueData.Teams.push(team);
             }
-            
-            if (row.MovieId) {
+
+            const rowMovieId = row.MovieId || row.movieid;
+            if (rowMovieId) {
                 team.Picks.push({
-                    MovieId: row.MovieId,
-                    Title: row.MovieTitle,
-                    // Use the Coalesced value here!
-                    BoxOffice: row.DisplayBoxOffice, 
-                    PosterUrl: row.PosterUrl,
-                    OrderDrafted: row.OrderDrafted,
-                    ReleaseDate: row.InternationalReleaseDate,
-                    TMDBId: row.TMDBId
+                    MovieId: rowMovieId,
+                    Title: row.MovieTitle || row.movietitle,
+                    BoxOffice: row.DisplayBoxOffice || row.displayboxoffice,
+                    PosterUrl: row.PosterUrl || row.posterurl,
+                    OrderDrafted: row.OrderDrafted || row.orderdrafted,
+                    ReleaseDate: row.InternationalReleaseDate || row.internationalreleasedate,
+                    TMDBId: row.TMDBId || row.tmdbid
                 });
             }
         });
 
         return res.status(200).json(leagueData);
     } catch (error) {
-        console.error("League Fetch Error:", error);
+        console.error("Detailed League Fetch Error:", error);
         res.status(500).send("Internal Server Error");
     }
 };
@@ -326,10 +331,12 @@ export const getLeagueInfo = async (req: Request, res: Response) => {
                 l."HasDrafted",
                 l."IsDrafting",
                 l."JoinPasswordHash",
-                -- Check if the current user has a team in this specific league
+                l."LeagueWinnerId",
+                winner_u."DisplayName" AS "LeagueWinnerName",
                 (SELECT COUNT(1) FROM "Teams" t WHERE t."LeagueId" = l."LeagueId" AND t."OwnerUserId" = $2) AS "IsJoined"
             FROM "Leagues" l
             INNER JOIN "Users" u ON l."AdminUserId" = u."UserId"
+            LEFT JOIN "Users" winner_u ON l."LeagueWinnerId" = winner_u."UserId"
             WHERE l."LeagueId" = $1
         `;
 
@@ -352,6 +359,8 @@ export const getLeagueInfo = async (req: Request, res: Response) => {
             HasDrafted: row.HasDrafted || row.hasdrafted,
             IsDrafting: row.IsDrafting || row.isdrafting,
             isPrivate: (row.JoinPasswordHash || row.joinpasswordhash) != null,
+            LeagueWinnerId: row.LeagueWinnerId || row.leaguewinnerid,
+            LeagueWinnerName: row.LeagueWinnerName || row.leaguewinnername,
             Rules: {
                 Starting: row.StartingNumber || row.startingnumber,
                 Bench: row.BenchNumber || row.benchnumber,
@@ -421,7 +430,7 @@ export const getLeagueReleaseOrder = async (req: Request, res: Response) => {
 export const searchLeagues = async (req: Request, res: Response) => {
     // 1. Extract query parameter '?q=searchterm'
     const searchQuery = req.query.q || "";
-    
+
     // 2. Soft Auth: Middleware handles this. 
     // If the route is public, req.user will be undefined.
     const userId = req.user?.userId || -1;
@@ -462,7 +471,7 @@ export const searchLeagues = async (req: Request, res: Response) => {
         // 4. Map the results
         const leagues = rows.map(row => {
             const rowAdminId = row.AdminUserId || row.adminuserid;
-            
+
             return {
                 LeagueId: row.LeagueId || row.leagueid,
                 LeagueName: row.LeagueName || row.leaguename,
@@ -590,6 +599,6 @@ export const updateLeague = async (req: Request, res: Response) => {
  */
 export const leagueSnapshotUpdate = async (req: Request, res: Response) => {
     // Run the service logic
-    await snapshotEndingLeagues(); 
+    await snapshotEndingLeagues();
     return res.status(200).send("Snapshot manually triggered and completed.");
 };
