@@ -318,31 +318,35 @@ export const replaceMovie = async (req: Request, res: Response) => {
     const client = await pool.connect();
 
     try {
-        // 1. Resolve Movie using your Postgres-ready helper
+        // 1. Resolve Incoming Movie
         const movie = await getMovieData(TMDBId);
         const internalMovieId = movie.MovieId || movie.movieid;
 
-        // 2. Business Rule: Cannot sign a movie that has already released
         const today = new Date();
-        const releaseDate = new Date(movie.InternationalReleaseDate || movie.internationalreleasedate);
+        const incomingReleaseDate = new Date(movie.InternationalReleaseDate || movie.internationalreleasedate);
 
-        if (releaseDate <= today) {
+        // Rule: Cannot sign a movie that has already released
+        if (incomingReleaseDate <= today) {
             return res.status(400).send("Cannot sign a movie that has already premiered.");
         }
 
-        // 3. Auth & League Context Check
+        // 2. Auth & League Context Check (Now fetching the occupant as well)
         const teamQuery = `
-            SELECT l."LeagueId", l."StartingNumber", t."OwnerUserId" 
+            SELECT 
+                l."LeagueId", l."StartingNumber", t."OwnerUserId",
+                m."Title" AS "OccupantTitle", 
+                m."InternationalReleaseDate" AS "OccupantReleaseDate"
             FROM "Teams" t 
             JOIN "Leagues" l ON t."LeagueId" = l."LeagueId" 
+            LEFT JOIN "TeamMovies" tm ON t."TeamId" = tm."TeamId" AND tm."OrderDrafted" = $2
+            LEFT JOIN "Movies" m ON tm."MovieId" = m."MovieId"
             WHERE t."TeamId" = $1
         `;
-        const teamRes = await client.query(teamQuery, [TeamId]);
+        const teamRes = await client.query(teamQuery, [TeamId, Slot]);
         const team = teamRes.rows[0];
 
         if (!team) return res.status(404).send("Team not found.");
 
-        // Ensure the person logged in owns the team
         if ((team.OwnerUserId || team.owneruserid) !== userId) {
             return res.status(403).send("You do not have Front Office authority for this team.");
         }
@@ -351,9 +355,19 @@ export const replaceMovie = async (req: Request, res: Response) => {
         const startingNumber = team.StartingNumber || team.startingnumber;
         const IsStarting = Slot <= startingNumber;
 
+        // 3. Rule: Cannot replace a STARTING movie if it has already premiered
+        if (IsStarting && team.OccupantReleaseDate) {
+            const occupantRelease = new Date(team.OccupantReleaseDate);
+            if (occupantRelease <= today) {
+                return res.status(400).send(
+                    `Illegal Move: ${team.OccupantTitle} has already premiered and is locked in a starting slot.`
+                );
+            }
+        }
+
         await client.query('BEGIN');
 
-        // 4. Monthly Cooldown Check (Postgres syntax)
+        // 4. Monthly Cooldown Check
         const cooldownQuery = `
             SELECT 1 FROM "TeamMovies" 
             WHERE "TeamId" = $1 
@@ -375,13 +389,11 @@ export const replaceMovie = async (req: Request, res: Response) => {
         }
 
         // 6. Execute the Swap
-        // Remove old occupant
         await client.query(
             'DELETE FROM "TeamMovies" WHERE "TeamId" = $1 AND "OrderDrafted" = $2',
             [TeamId, Slot]
         );
 
-        // Add new movie
         const insertQuery = `
             INSERT INTO "TeamMovies" ("TeamId", "MovieId", "DateAdded", "IsStarting", "OrderDrafted", "LeagueId")
             VALUES ($1, $2, NOW(), $3, $4, $5)
