@@ -12,7 +12,7 @@ interface FrontOfficeProps {
     team: any;
     startingSlots: number;
     totalSlots: number;
-    onSwap: (slot1: number, slot2: number) => Promise<void>; // Updated to Promise
+    onSwap: (slot1: number, slot2: number) => Promise<void>;
     searchMovies: (query: string) => Promise<any[]>;
 }
 

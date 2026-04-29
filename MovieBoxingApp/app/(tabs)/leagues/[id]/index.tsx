@@ -32,6 +32,7 @@ import '../../../../global.css';
 import { JoinLeagueModal } from '@/src/components/JoinLeagueModal';
 import { useAuth } from '@/src/context/AuthContext';
 import { LeagueSettingsModal } from '@/src/components/LeagueSettingsModal';
+import { TradeModal } from '@/src/components/TradeModal';
 
 const formatCurrency = (rev: number) => {
     if (rev >= 1000000000) return `$${(rev / 1000000000).toFixed(3)}B`;
@@ -53,9 +54,12 @@ export default function LeagueDetails() {
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<'teams' | 'release' | 'leaderboard' | 'trades'>('teams');
 
+    const [otherTeam, setOtherTeam] = useState<LeagueTeam | null>(null);
+
     // UI States
     const [openBench, setOpenBench] = useState<Set<number>>(new Set());
     const [isFrontOfficeOpen, setIsFrontOfficeOpen] = useState(false);
+    const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
     const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -113,6 +117,26 @@ export default function LeagueDetails() {
             await fetchLeagueData(false);
             setIsFrontOfficeOpen(false);
             Alert.alert("Success", "Roster reshuffled!");
+        } catch (err: any) {
+            Alert.alert("Ref Stopped the Fight", err.message || "An unexpected error occurred.");
+        } finally {
+            setIsSubmitting(false);
+            onRefresh();
+        }
+    };
+
+    const handleTradeProposal = async (ProposingTeamId: number, TargetTeamId: number, OfferedMovieId: number,
+        RequestedMovieId: number, Incentive: number) => {
+        if (!userTeam) return;
+        setIsSubmitting(true);
+        try {
+            await apiRequest(`/trades/create`, {
+                method: 'POST',
+                body: JSON.stringify({ ProposingTeamId, TargetTeamId, OfferedMovieId, RequestedMovieId, Incentive })
+            });
+            await fetchLeagueData(false);
+            setIsFrontOfficeOpen(false);
+            Alert.alert("Trade Proposed!", "Other team must now accept or deny the trade request.");
         } catch (err: any) {
             Alert.alert("Ref Stopped the Fight", err.message || "An unexpected error occurred.");
         } finally {
@@ -311,6 +335,26 @@ export default function LeagueDetails() {
                                                 </TouchableOpacity>
                                             </View>
                                         )}
+
+                                        {!isUser && leagueInfo.Joined && (
+                                            <View className="flex-row gap-2 mt-4">
+                                                <TouchableOpacity
+                                                    onPress={() => {
+                                                        setOtherTeam(team);
+                                                        setIsTradeModalOpen(true)
+                                                    }}
+                                                    disabled={!leagueInfo.HasDrafted}
+                                                    className={`px-4 py-2 rounded-xl flex-row items-center ${leagueInfo.HasDrafted ? 'bg-red-600' : 'bg-neutral-800 opacity-50'
+                                                        }`}
+                                                >
+                                                    <ArrowRightLeft size={14} color={leagueInfo.HasDrafted ? "white" : "#737373"} />
+                                                    <Text className={`text-[10px] font-black uppercase italic ml-2 ${leagueInfo.HasDrafted ? 'text-white' : 'text-neutral-500'
+                                                        }`}>
+                                                        Propose Trade
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        )}
                                     </View>
                                     <View className="items-end">
                                         <Text className="text-xl font-mono font-black text-white">{formatCurrency(totalBoxOffice)}</Text>
@@ -382,6 +426,18 @@ export default function LeagueDetails() {
                 />
             )}
 
+            {userTeam && otherTeam && (
+                <TradeModal
+                    visible={isTradeModalOpen}
+                    onClose={() => setIsTradeModalOpen(false)}
+                    myTeam={userTeam}
+                    otherTeam={otherTeam}
+                    startingSlots={STARTING_SLOTS}
+                    totalSlots={TOTAL_SLOTS}
+                    handleTradeProposal={handleTradeProposal}
+                />
+            )}
+
             <JoinLeagueModal
                 visible={isJoinModalOpen}
                 leagueInfo={leagueInfo}
@@ -431,7 +487,7 @@ const ReleaseOrderView = ({ releaseSchedule, leagueInfo, parentRef }: { releaseS
         const targetMovie = upcomingMovie || movies[movies.length - 1];
         if (targetMovie) {
             const y = containerY.current + (itemLayouts.current[targetMovie.MovieId] || 0);
-            parentRef.current?.scrollToOffset({ offset: y - 20, animated: true });
+            parentRef.current?.scrollToOffset({ offset: y - 300, animated: true });
         }
     };
 
