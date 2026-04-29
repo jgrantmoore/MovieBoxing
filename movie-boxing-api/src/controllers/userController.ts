@@ -116,7 +116,7 @@ export const getUserStats = async (req: Request, res: Response) => {
                 (SELECT COUNT(*) 
                  FROM "TeamMovies" tm 
                  JOIN "Teams" t ON tm."TeamId" = t."TeamId" 
-                 WHERE t."OwnerUserId" = u."UserId" AND tm."IsStarting" = true) AS "MovieCount",
+                 WHERE t."OwnerUserId" = u."UserId") AS "MovieCount",
                 
                 (SELECT COUNT(*) FROM "Leagues" WHERE "LeagueWinnerId" = u."UserId") AS "LeaguesWon",
 

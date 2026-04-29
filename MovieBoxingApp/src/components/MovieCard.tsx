@@ -61,6 +61,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
             source={{ uri: `https://image.tmdb.org/t/p/w400${posterUrl}` }} 
             className="w-full h-full"
             resizeMode="cover"
+            fadeDuration={300} // Smooths out the "pop" on Android
           />
         ) : (
           <View className="px-4">

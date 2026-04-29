@@ -13,10 +13,12 @@ import {
 import { useRouter, Stack } from 'expo-router';
 import { apiRequest } from '../../../src/api/client';
 import { useAuth } from '../../../src/context/AuthContext';
+import { Eye, EyeOff } from 'lucide-react-native';
 
 export default function EditProfile() {
     const { session } = useAuth();
     const router = useRouter();
+    const [showPassword, setShowPassword] = useState(false);
 
     const [formData, setFormData] = useState({
         name: session?.user?.displayName || '',
@@ -89,7 +91,7 @@ export default function EditProfile() {
             if (formData.password) payload.password = formData.password;
 
             await apiRequest('/user/update', {
-                method: 'POST',
+                method: 'PUT',
                 body: JSON.stringify(payload),
             });
 
@@ -155,8 +157,8 @@ export default function EditProfile() {
                                 placeholder="Username"
                                 placeholderTextColor="#404040"
                                 autoCapitalize="none"
-                                className={`w-full px-4 py-4 bg-black border rounded-2xl text-white font-bold ${usernameStatus.available === true ? 'border-green-500' :
-                                        usernameStatus.available === false ? 'border-red-600' : 'border-neutral-800'
+                                className={`w-full px-4 py-4 bg-black border rounded-2xl lowercase text-white font-bold ${usernameStatus.available === true ? 'border-green-500' :
+                                    usernameStatus.available === false ? 'border-red-600' : 'border-neutral-800'
                                     }`}
                             />
                             {formData.username.length >= 3 && formData.username !== session?.user?.username && (
@@ -169,33 +171,56 @@ export default function EditProfile() {
 
                         <View className="h-[1px] bg-neutral-800 my-2" />
 
-                        {/* Passwords unchanged */}
                         <View className='mb-2'>
                             <Text className="text-[10px] font-bold uppercase tracking-widest mb-2 text-neutral-400 ml-1">
                                 New Password (Optional)
                             </Text>
-                            <TextInput
-                                value={formData.password}
-                                onChangeText={(val) => setFormData({ ...formData, password: val })}
-                                placeholder="••••••••"
-                                placeholderTextColor="#404040"
-                                secureTextEntry
-                                className="w-full px-4 py-4 bg-black border border-neutral-800 rounded-2xl text-white font-bold"
-                            />
+                            <View className="relative justify-center">
+                                <TextInput
+                                    value={formData.password}
+                                    onChangeText={(val) => setFormData({ ...formData, password: val })}
+                                    placeholder="••••••••"
+                                    placeholderTextColor="#404040"
+                                    // 2. Use state here
+                                    secureTextEntry={!showPassword}
+                                    className="w-full px-4 py-4 bg-black border border-neutral-800 rounded-2xl text-white font-bold pr-16"
+                                />
+                                {/* 3. Toggle Button */}
+                                <TouchableOpacity
+                                    onPress={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4"
+                                >
+                                    <Text className="text-[10px] font-black uppercase italic text-red-600 tracking-tighter">
+                                        {showPassword ? <EyeOff color="#525252" size={18} /> : <Eye color="#525252" size={18} />}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
+                        {/* Confirm Password Field */}
                         <View className='mb-2'>
                             <Text className="text-[10px] font-bold uppercase tracking-widest mb-2 text-neutral-400 ml-1">
                                 Confirm Password
                             </Text>
-                            <TextInput
-                                value={formData.confirmPassword}
-                                onChangeText={(val) => setFormData({ ...formData, confirmPassword: val })}
-                                placeholder="••••••••"
-                                placeholderTextColor="#404040"
-                                secureTextEntry
-                                className="w-full px-4 py-4 bg-black border border-neutral-800 rounded-2xl text-white font-bold"
-                            />
+                            <View className="relative justify-center">
+                                <TextInput
+                                    value={formData.confirmPassword}
+                                    onChangeText={(val) => setFormData({ ...formData, confirmPassword: val })}
+                                    placeholder="••••••••"
+                                    placeholderTextColor="#404040"
+                                    // 2. Apply state here as well
+                                    secureTextEntry={!showPassword}
+                                    className="w-full px-4 py-4 bg-black border border-neutral-800 rounded-2xl text-white font-bold pr-16"
+                                />
+                                <TouchableOpacity
+                                    onPress={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4"
+                                >
+                                    <Text className="text-[10px] font-black uppercase italic text-red-600 tracking-tighter">
+                                        {showPassword ? <EyeOff color="#525252" size={18} /> : <Eye color="#525252" size={18} />}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
                         <TouchableOpacity

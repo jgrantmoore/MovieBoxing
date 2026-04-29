@@ -21,7 +21,8 @@ import {
     Pencil,
     Trash2,
     Calendar,
-    ChevronDown
+    ChevronDown,
+    ArrowRightLeft
 } from 'lucide-react-native';
 import { apiRequest } from '../../../../src/api/client';
 import { MovieCard } from '../../../../src/components/MovieCard';
@@ -45,9 +46,12 @@ export default function LeagueDetails() {
     // Data States
     const [leagueInfo, setLeagueInfo] = useState<LeagueData | null>(null);
     const [teams, setTeams] = useState<LeagueTeam[]>([]);
+    const [releaseSchedule, setReleaseSchedule] = useState<any[]>([]);
+    const [leaderboard, setLeaderboard] = useState<any[]>([]);
+
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [activeTab, setActiveTab] = useState<'teams' | 'release' | 'leaderboard'>('teams');
+    const [activeTab, setActiveTab] = useState<'teams' | 'release' | 'leaderboard' | 'trades'>('teams');
 
     // UI States
     const [openBench, setOpenBench] = useState<Set<number>>(new Set());
@@ -68,11 +72,20 @@ export default function LeagueDetails() {
     const fetchLeagueData = async (showIndicator = true) => {
         if (showIndicator) setLoading(true);
         try {
-            const data = await apiRequest<LeagueData>(`/leagues?id=${id}`);
-            setLeagueInfo(data);
-            setTeams(data.Teams || []);
+            // Promise.all ensures we fetch everything in parallel
+            const [info, schedule, rankings] = await Promise.all([
+                apiRequest<LeagueData>(`/leagues?id=${id}`),
+                apiRequest<any[]>(`/leagues/release-order?id=${id}`),
+                apiRequest<any[]>(`/leagues/leaderboard?id=${id}`)
+            ]);
+
+            setLeagueInfo(info);
+            setTeams(info.Teams || []);
+            setReleaseSchedule(schedule || []);
+            setLeaderboard(rankings || []);
         } catch (err) {
-            console.error(err);
+            console.error("Critical Data Fetch Error:", err);
+            Alert.alert("Technical Foul", "Could not load all league data.");
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -233,14 +246,16 @@ export default function LeagueDetails() {
                             <TabBtn active={activeTab === 'teams'} label="Teams" icon={<LayoutGrid size={16} color={activeTab === 'teams' ? 'white' : '#737373'} />} onPress={() => setActiveTab('teams')} />
                             <TabBtn active={activeTab === 'release'} label="Schedule" icon={<ListOrdered size={16} color={activeTab === 'release' ? 'white' : '#737373'} />} onPress={() => setActiveTab('release')} />
                             <TabBtn active={activeTab === 'leaderboard'} label="Stats" icon={<Medal size={16} color={activeTab === 'leaderboard' ? 'white' : '#737373'} />} onPress={() => setActiveTab('leaderboard')} />
+                            <TabBtn active={activeTab === 'trades'} label="Trades" icon={<ArrowRightLeft size={16} color={activeTab === 'trades' ? 'white' : '#737373'} />} onPress={() => setActiveTab('trades')} />
                         </View>
 
-                        {activeTab === 'release' && <ReleaseOrderView leagueId={Number(id)} leagueInfo={leagueInfo} parentRef={parentFlatListRef} />}
-                        {activeTab === 'leaderboard' && <LeaderboardView leagueId={Number(id)} />}
+                        {activeTab === 'release' && <ReleaseOrderView releaseSchedule={releaseSchedule} leagueInfo={leagueInfo} parentRef={parentFlatListRef} />}
+                        {activeTab === 'leaderboard' && <LeaderboardView leaderboard={leaderboard} />}
+                        {activeTab === 'trades' && <Text className="text-white font-black italic text-center py-20">Trade feature coming soon...</Text>}
                         {activeTab === 'teams' && leagueInfo.IsDrafting && (
                             <TouchableOpacity onPress={() => router.push(`/leagues/${id}/draft`)} className="bg-red-600 rounded-2xl py-5 flex-row items-center justify-center shadow-lg border-b-4 border-red-800 mb-4">
-                                <Trophy size={20} color="white" className="mr-3" />
-                                <Text className="text-white font-black uppercase italic text-lg">Enter Draft Arena</Text>
+                                <Trophy size={20} stroke="white" className="mr-3 animate-pulse" />
+                                <Text className="text-white font-black uppercase italic text-lg ml-3 animate-pulse">Enter Draft Arena</Text>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -401,25 +416,14 @@ const RuleItem = ({ icon, label, value }: any) => (
 
 const TabBtn = ({ active, label, icon, onPress }: any) => (
     <TouchableOpacity onPress={onPress} className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${active ? 'bg-red-600' : ''}`}>
-        {icon}<Text className={`ml-2 text-[10px] font-black uppercase italic ${active ? 'text-white' : 'text-neutral-500'}`}>{label}</Text>
+        {icon}<Text className={`ml-1 text-[9px] font-black uppercase italic ${active ? 'text-white' : 'text-neutral-500'}`}>{label}</Text>
     </TouchableOpacity>
 );
 
-const ReleaseOrderView = ({ leagueId, leagueInfo, parentRef }: { leagueId: number; leagueInfo: LeagueData; parentRef: any }) => {
-    const [movies, setMovies] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+const ReleaseOrderView = ({ releaseSchedule, leagueInfo, parentRef }: { releaseSchedule: any[]; leagueInfo: LeagueData; parentRef: any }) => {
+    const movies = releaseSchedule;
     const itemLayouts = useRef<{ [key: string]: number }>({});
     const containerY = useRef(0);
-
-    useEffect(() => {
-        const fetchOrder = async () => {
-            try {
-                const data = await apiRequest<any[]>(`/leagues/release-order?id=${leagueId}`);
-                setMovies(data || []);
-            } catch (err) { console.error(err); } finally { setLoading(false); }
-        };
-        fetchOrder();
-    }, [leagueId]);
 
     const jumpToToday = () => {
         const today = new Date();
@@ -431,7 +435,6 @@ const ReleaseOrderView = ({ leagueId, leagueInfo, parentRef }: { leagueId: numbe
         }
     };
 
-    if (loading) return <ActivityIndicator color="#dc2626" className="py-10" />;
 
     return (
         <View onLayout={(e) => containerY.current = e.nativeEvent.layout.y}>
@@ -465,30 +468,19 @@ const ReleaseOrderView = ({ leagueId, leagueInfo, parentRef }: { leagueId: numbe
     );
 };
 
-const LeaderboardView = ({ leagueId }: { leagueId: number }) => {
+const LeaderboardView = ({ leaderboard }: { leaderboard: any[] }) => {
     const [rankings, setRankings] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchRankings = async () => {
-            try {
-                const data = await apiRequest<any[]>(`/leagues/leaderboard?id=${leagueId}`);
-                setRankings(data || []);
-            } catch (err) { console.error(err); } finally { setLoading(false); }
-        };
-        fetchRankings();
-    }, [leagueId]);
 
     const formatCurrency = (rev: number) => {
         if (rev >= 1000000000) return `$${(rev / 1000000000).toFixed(3)}B`;
         return `$${(rev / 1000000).toFixed(1)}M`;
     };
 
-    if (loading) return <ActivityIndicator color="#dc2626" className="py-10" />;
 
     return (
         <View>
-            {rankings.map((player, index) => {
+            {leaderboard.map((player, index) => {
                 const isFirst = index === 0;
                 return (
                     <View

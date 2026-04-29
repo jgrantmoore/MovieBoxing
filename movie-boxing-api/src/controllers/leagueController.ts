@@ -505,13 +505,12 @@ export const searchLeagues = async (req: Request, res: Response) => {
 
 /**
  * Update an existing league (admin only).
- * PROTECTED: Requires authenticateToken, requireAuth
+ * Rules: EndDate cannot be in the past.
  */
 export const updateLeague = async (req: Request, res: Response) => {
     const leagueId = req.query.id;
     if (!leagueId) return res.status(400).send("League ID is required");
 
-    // Grabbed from our new middleware
     const userId = req.user!.userId;
     const body = req.body;
 
@@ -520,12 +519,79 @@ export const updateLeague = async (req: Request, res: Response) => {
     }
 
     try {
+        // Date validation
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); // Normalize to start of today
+
+        
+
+        if (body.EndDate !== undefined) {
+            const newEndDate = new Date(body.EndDate);
+
+            if (newEndDate < now) {
+                return res.status(400).send("Validation Error: League End Date cannot be in the past.");
+            }
+
+            // Optional: If StartDate is also in the body, check the range
+            if (body.StartDate !== undefined) {
+                if (new Date(body.EndDate) < new Date(body.StartDate)) {
+                    return res.status(400).send("Validation Error: End Date must be after Start Date.");
+                }
+            } else {
+                // Compare to the current startdate since it's not being updated
+                const currentStartDateResult = await pool.query(
+                    'SELECT "StartDate" FROM "Leagues" WHERE "LeagueId" = $1',
+                    [leagueId]
+                );
+
+                if (currentStartDateResult.rows.length === 0) {
+                    return res.status(404).send("League not found");
+                }
+
+                const currentStartDate = currentStartDateResult.rows[0].StartDate || currentStartDateResult.rows[0].startdate;
+
+                if (currentStartDate > newEndDate) {
+                    return res.status(400).send("Validation Error: End Date must be after the current Start Date.");
+                }
+            }
+        }
+
+        if (body.StartDate !== undefined) {
+            const newStartDate = new Date(body.StartDate);
+
+            if (newStartDate < now) {
+                return res.status(400).send("Validation Error: League Start Date cannot be in the past.");
+            }
+
+            // Optional: If StartDate is also in the body, check the range
+            if (body.EndDate !== undefined) {
+                if (new Date(body.EndDate) < new Date(body.StartDate)) {
+                    return res.status(400).send("Validation Error: End Date must be after Start Date.");
+                }
+            } else {
+                // Compare to the current enddate since it's not being updated
+                const currentEndDateResult = await pool.query(
+                    'SELECT "EndDate" FROM "Leagues" WHERE "LeagueId" = $1',
+                    [leagueId]
+                );
+
+                if (currentEndDateResult.rows.length === 0) {
+                    return res.status(404).send("League not found");
+                }
+
+                const currentEndDate = currentEndDateResult.rows[0].EndDate || currentEndDateResult.rows[0].enddate;
+
+                if (newStartDate > currentEndDate) {
+                    return res.status(400).send("Validation Error: Start Date must be before the current End Date.");
+                }
+            }
+        }
+
+
         const setParts: string[] = [];
         const values: any[] = [];
         let paramIndex = 1;
 
-        // 1. Map incoming body to SQL columns
-        // We use double quotes for Postgres case-sensitivity safety
         if (body.LeagueName !== undefined) {
             setParts.push(`"LeagueName" = $${paramIndex++}`);
             values.push(body.LeagueName);
@@ -565,14 +631,11 @@ export const updateLeague = async (req: Request, res: Response) => {
             return res.status(400).send("No valid fields to update");
         }
 
-        // Add the WHERE clause parameters at the end
         const leagueIdParam = paramIndex++;
         const userIdParam = paramIndex++;
         values.push(parseInt(leagueId as string));
         values.push(userId);
 
-        // 2. The Postgres Update Query
-        // Note: OUTPUT INSERTED.* becomes RETURNING * in Postgres
         const query = `
             UPDATE "Leagues"
             SET ${setParts.join(', ')}
