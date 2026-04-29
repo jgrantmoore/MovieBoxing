@@ -431,14 +431,24 @@ export const swapMovies = async (req: Request, res: Response) => {
 
         const startingLimit = contextRes.rows[0].StartingNumber || contextRes.rows[0].startingnumber;
 
-        // 2. Perform Release Date Check (Existing logic)
+        // 2. Perform Release Date Check
         const today = new Date();
         for (const movie of contextRes.rows) {
             const current = movie.OrderDrafted || movie.orderdrafted;
             const target = current === Slot1 ? Slot2 : Slot1;
-            if (current > startingLimit && target <= startingLimit) {
-                if (new Date(movie.InternationalReleaseDate || movie.internationalreleasedate) <= today) {
-                    return res.status(400).send(`Illegal Move: ${movie.Title} has already released.`);
+
+            // Check if movie is crossing the "Start/Bench Line"
+            const isMovingToBench = current <= startingLimit && target > startingLimit;
+            const isMovingToStarter = current > startingLimit && target <= startingLimit;
+
+            if (isMovingToBench || isMovingToStarter) {
+                const releaseDate = new Date(movie.InternationalReleaseDate || movie.internationalreleasedate);
+
+                if (releaseDate <= today) {
+                    const direction = isMovingToBench ? "be benched" : "be started";
+                    return res.status(400).send(
+                        `Illegal Move: ${movie.Title} has already released and cannot ${direction}.`
+                    );
                 }
             }
         }
