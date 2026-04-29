@@ -59,6 +59,7 @@ export const TradeModal = ({
                 otherTeamSelection.MovieId,
                 0 // No cash incentive for now
             );
+            setIsProcessing(false);
             reset();
         } catch (error) {
             console.error("Trade proposal failed:", error);
@@ -79,7 +80,7 @@ export const TradeModal = ({
 
         return (
             <TouchableOpacity
-                key={slot}
+                key={slot + "tradingwith" + otherTeam.TeamId}
                 onPress={() => handleSlotPress(pick)}
                 activeOpacity={0.7}
                 disabled={isProcessing}
@@ -138,7 +139,7 @@ export const TradeModal = ({
                             className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${mode === 'otherteam' ? 'bg-red-600' : ''}`}
                         >
                             <ArrowRightLeft size={16} color={mode === 'otherteam' ? 'white' : '#737373'} />
-                            <Text className={`ml-2 text-[10px] font-black uppercase italic ${mode === 'otherteam' ? 'text-white' : 'text-neutral-500'}`}>{otherTeam?.TeamName}</Text>
+                            <Text className={`ml-2 text-[10px] max-w-[75%] font-black uppercase italic line-clamp-1 ${mode === 'otherteam' ? 'text-white' : 'text-neutral-500'}`}>{otherTeam?.TeamName}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             disabled={isProcessing}

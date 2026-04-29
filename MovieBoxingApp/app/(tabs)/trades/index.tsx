@@ -96,7 +96,7 @@ export default function TradeCenter() {
                     </View>
                 ) : (
                     trades.map((trade) => {
-                        const isIncoming = trade.TargetOwnerId === MY_USER_ID;
+                        const isIncoming = trade.TargetOwnerUserId === Number(MY_USER_ID);
                         const isProcessing = processingId === trade.TradeId;
 
                         return (

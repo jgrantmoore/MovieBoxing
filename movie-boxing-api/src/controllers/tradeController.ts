@@ -205,11 +205,13 @@ export const getPendingTrades = async (req: Request, res: Response) => {
                    m2."Title" as "RequestedMovieTitle", m2."PosterUrl" as "RequestedPoster",
                    tp."TeamName" as "ProposingTeamName", tp."OwnerUserId" as "ProposingOwnerUserId",
                    tt."TeamName" as "TargetTeamName", tt."OwnerUserId" as "TargetOwnerUserId"
+                   l."LeagueId", l."Name" as "LeagueName"
             FROM "TradeProposals" t
             JOIN "Teams" tp ON t."ProposingTeamId" = tp."TeamId"
             JOIN "Teams" tt ON t."TargetTeamId" = tt."TeamId"
             JOIN "Movies" m1 ON t."OfferedMovieId" = m1."MovieId"
             JOIN "Movies" m2 ON t."RequestedMovieId" = m2."MovieId"
+            JOIN "Leagues" l ON tp."LeagueId" = l."LeagueId"
             WHERE t."Pending" = TRUE 
             AND (tp."OwnerUserId" = $1 OR tt."OwnerUserId" = $1);
         `;

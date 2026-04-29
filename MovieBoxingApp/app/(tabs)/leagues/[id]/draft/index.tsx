@@ -400,10 +400,10 @@ export default function DraftArena() {
                         <Text className="text-3xl font-black text-white uppercase italic text-center mb-2">Draft Finished</Text>
                         <Text className="text-neutral-400 text-center mb-8">The box office battle begins now.</Text>
                         <TouchableOpacity
-                            onPress={() => router.replace(`/leagues/${id}`)}
+                            onPress={() => router.back()}
                             className="bg-white w-full py-5 rounded-2xl items-center flex-row justify-center"
                         >
-                            <Text className="text-black font-black uppercase italic mr-2">Return Home</Text>
+                            <Text className="text-black font-black uppercase italic mr-2">Return To Leagues</Text>
                             <ArrowRight color="black" size={20} />
                         </TouchableOpacity>
                     </View>
