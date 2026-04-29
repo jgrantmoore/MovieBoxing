@@ -141,7 +141,7 @@ export default function CreateLeague() {
                                 <ShieldCheck size={16} color="#737373" />
                                 <TextInput
                                     secureTextEntry
-                                    className="flex-1 text-white font-mono ml-3 border-b border-neutral-800 pb-1"
+                                    className="flex-1 text-white font-mono ml-3 border-b border-neutral-800 pb-3"
                                     placeholder="Required for entry"
                                     placeholderTextColor="#404040"
                                     value={formData.Password}
@@ -198,8 +198,8 @@ export default function CreateLeague() {
 
                     <View className="flex-row justify-between items-center pt-4 border-t border-neutral-800">
                         <View>
-                            <Text className="text-white font-black italic uppercase">Release Region</Text>
-                            <Text className="text-neutral-500 text-[10px] font-mono">Which date determines scoring</Text>
+                            <Text className="text-white font-black italic uppercase">Release Preference</Text>
+                            <Text className="text-neutral-500 text-[10px] font-mono max-w-[75%]">Choosing US will sometimes have Box Office numbers roll in before the movie releases</Text>
                         </View>
                         <View className="flex-row bg-neutral-800 p-1 rounded-xl">
                             <TouchableOpacity

@@ -25,6 +25,7 @@ export default function LeagueSettings() {
     const [bench, setBench] = useState("3");
     const [joinPassword, setJoinPassword] = useState("");
     const [freeAgents, setFreeAgents] = useState(true);
+    const [privateLeague, setPrivateLeague] = useState(false);
     const [startDate, setStartDate] = useState(new Date());
     const [endDate, setEndDate] = useState(new Date());
 
@@ -40,6 +41,7 @@ export default function LeagueSettings() {
             try {
                 const data = await apiRequest(`/leagues?id=${id}`);
                 setLeagueName(data.LeagueName);
+                setPrivateLeague(data.isPrivate);
                 setStarters(String(data.Rules?.Starting || 5));
                 setBench(String(data.Rules?.Bench || 3));
                 setFreeAgents(data.Rules?.FreeAgents ?? true);
@@ -99,6 +101,7 @@ export default function LeagueSettings() {
                 StartingNumber: parseInt(starters),
                 BenchNumber: parseInt(bench),
                 FreeAgentsAllowed: freeAgents,
+                Public: !privateLeague,
                 StartDate: startDate.toISOString().split('T')[0],
                 EndDate: endDate.toISOString().split('T')[0],
                 JoinPassword: joinPassword.trim().length > 0 ? joinPassword : undefined
@@ -135,7 +138,7 @@ export default function LeagueSettings() {
                             });
                             Alert.alert("Success", "Arena has been dismantled.");
                             triggerRefresh(); // Refresh league list on home screen
-                            router.replace('/(tabs)/leagues'); // Navigate back to the league list
+                            router.navigate('/leagues'); // Navigate back to the league list
                         } catch (err: any) {
                             Alert.alert("Deletion Failed", err.message);
                             setDeleting(false);
@@ -183,6 +186,18 @@ export default function LeagueSettings() {
                             />
                         </View>
                     </View>
+
+                </View>
+                <View className="flex-row justify-between items-center pt-4 border-t border-neutral-800">
+                    <View>
+                        <Text className="text-white font-black italic uppercase">League Privacy</Text>
+                        <Text className="text-neutral-500 text-[10px] font-mono">Set league privacy</Text>
+                    </View>
+                    <Switch
+                        value={privateLeague}
+                        onValueChange={setPrivateLeague}
+                        trackColor={{ false: '#262626', true: '#dc2626' }}
+                    />
                 </View>
 
                 {/* Season Schedule */}

@@ -34,6 +34,7 @@ export const LeagueSettingsModal = ({
     const [bench, setBench] = useState("3");
     const [joinPassword, setJoinPassword] = useState("");
     const [freeAgents, setFreeAgents] = useState(true);
+    const [privateLeague, setPrivateLeague] = useState(false);
     const [startDate, setStartDate] = useState(new Date());
     const [endDate, setEndDate] = useState(new Date());
 
@@ -53,10 +54,11 @@ export const LeagueSettingsModal = ({
         try {
             const data = await apiRequest(`/leagues?id=${leagueId}`);
             setLeagueName(data.LeagueName);
+            setPrivateLeague(data.isPrivate);
             setStarters(String(data.Rules?.Starting || 5));
             setBench(String(data.Rules?.Bench || 3));
             setFreeAgents(data.Rules?.FreeAgents ?? true);
-            
+
             if (data.StartDate) {
                 const s = new Date(data.StartDate);
                 setStartDate(new Date(s.getTime() + s.getTimezoneOffset() * 60000));
@@ -169,22 +171,44 @@ export const LeagueSettingsModal = ({
                         <View className="bg-neutral-900 rounded-3xl p-5 border border-neutral-800 mb-6">
                             <Text className="text-neutral-400 text-[10px] font-bold uppercase mb-2">League Name</Text>
                             <TextInput
-                                className="text-white font-black italic text-xl uppercase border-b border-neutral-800 pb-2"
+                                className="text-white font-black italic text-2xl uppercase border-b border-neutral-800 pb-2"
                                 value={leagueName}
                                 onChangeText={setLeagueName}
                             />
+                            {privateLeague && (
                             <View className="mt-6">
                                 <Text className="text-neutral-400 text-[10px] font-bold uppercase mb-2">Join Password</Text>
-                                <View className="flex-row items-center border-b border-neutral-800 pb-2">
+                                <View className="flex-row items-center border-b border-neutral-800 pb-3">
                                     <ShieldCheck size={16} color="#737373" />
                                     <TextInput
                                         secureTextEntry
-                                        className="flex-1 text-white font-mono ml-3"
+                                        className="text-white font-mono ml-3 pt-2 leading-none"
                                         value={joinPassword}
                                         onChangeText={setJoinPassword}
                                         placeholder="Update Password"
                                         placeholderTextColor="#404040"
                                     />
+                                </View>
+                            </View>
+                            )}
+                            <View className="flex-row justify-between items-center pt-4 mt-2">
+                                <View>
+                                    <Text className="text-white font-black italic uppercase">League Privacy</Text>
+                                    <Text className="text-neutral-500 text-[10px] font-mono">Allow joining league without password</Text>
+                                </View>
+                                <View className="flex-row bg-neutral-800 p-1 rounded-xl">
+                                    <TouchableOpacity
+                                        onPress={() => setPrivateLeague(false)}
+                                        className={`px-3 py-1 rounded-lg ${privateLeague === false ? 'bg-neutral-600' : ''}`}
+                                    >
+                                        <Text className="text-white font-bold text-[10px]">PUB</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={() => setPrivateLeague(true)}
+                                        className={`px-3 py-1 rounded-lg ${privateLeague === true ? 'bg-neutral-600' : ''}`}
+                                    >
+                                        <Text className="text-white font-bold text-[10px]">PRIV</Text>
+                                    </TouchableOpacity>
                                 </View>
                             </View>
                         </View>

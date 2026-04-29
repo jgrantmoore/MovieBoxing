@@ -611,6 +611,9 @@ export const updateLeague = async (req: Request, res: Response) => {
             setParts.push(`"BenchNumber" = $${paramIndex++}`);
             values.push(body.BenchNumber);
         }
+        if (body.Public == true) {
+            setParts.push(`"JoinPasswordHash" = NULL`);
+        }
         if (body.JoinPassword !== undefined) {
             const saltRounds = 12;
             const hash = await bcrypt.hash(body.JoinPassword, saltRounds);
