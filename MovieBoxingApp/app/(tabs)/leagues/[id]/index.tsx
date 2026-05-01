@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image,
-    FlatList, RefreshControl
+    FlatList, RefreshControl, Modal
 } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter, router } from 'expo-router';
 import Animated, {
@@ -63,11 +63,19 @@ export default function LeagueDetails() {
     const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showWinnerPopup, setShowWinnerPopup] = useState(false);
 
     // Refs for scrolling logic
     const parentFlatListRef = useRef<FlatList>(null);
     const scrollRefs = useRef<{ [key: number]: ScrollView | null }>({});
     const scrollOffsets = useRef<{ [key: number]: number }>({});
+
+    useEffect(() => {
+        // Trigger the popup if a winner exists and hasn't been dismissed
+        if (leagueInfo?.LeagueWinnerId) {
+            setShowWinnerPopup(true);
+        }
+    }, [leagueInfo]);
 
     useEffect(() => {
         fetchLeagueData();
@@ -453,6 +461,46 @@ export default function LeagueDetails() {
                     onUpdateSuccess={fetchLeagueData}
                 />
             )}
+
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={showWinnerPopup}
+                onRequestClose={() => setShowWinnerPopup(false)}
+            >
+                <View className="flex-1 justify-center items-center bg-black/80 px-6">
+                    <View className="bg-neutral-900 border-2 border-red-600 rounded-[2.5rem] p-8 w-full items-center shadow-2xl">
+
+                        {/* Trophy Icon or Graphic */}
+                        <View className="bg-red-600/20 p-4 rounded-full mb-4">
+                            <Text className="text-4xl">🏆</Text>
+                        </View>
+
+                        <Text className="text-neutral-500 text-[10px] font-black uppercase tracking-[0.2em] mb-1">
+                            League Champion
+                        </Text>
+
+                        <Text className="text-white text-4xl font-black italic uppercase tracking-tighter text-center mb-2">
+                            {leagueInfo?.LeagueWinnerName}
+                        </Text>
+
+                        <Text className="text-neutral-600 text-[10px] font-bold mb-6">
+                            ID: {leagueInfo?.LeagueWinnerId}
+                        </Text>
+
+                        <View className="h-[1px] w-full bg-neutral-800 mb-6" />
+
+                        <TouchableOpacity
+                            onPress={() => setShowWinnerPopup(false)}
+                            className="bg-red-600 py-4 px-10 rounded-2xl shadow-lg shadow-red-900/40"
+                        >
+                            <Text className="text-white font-black uppercase italic tracking-tight">
+                                Respect the Champ
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
 
         </View>
     );

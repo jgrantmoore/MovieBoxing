@@ -161,6 +161,7 @@ export const getLeague = async (req: Request, res: Response) => {
                 l.*, 
                 admin_u."DisplayName" AS "AdminName",
                 winner_u."DisplayName" AS "LeagueWinnerName",
+                winner_u."UserId" AS "LeagueWinnerId",
                 t."TeamId", t."TeamName", t."DraftOrder", 
                 u."UserId" as "OwnerUserId", u."DisplayName" AS "OwnerName",
                 m."MovieId", m."Title" AS "MovieTitle", m."PosterUrl", m."TMDBId",
