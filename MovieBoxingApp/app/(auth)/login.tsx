@@ -45,8 +45,10 @@ export default function Login() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const auth = useAuth();
-    const login = auth?.login;
+    const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+    
+    // Pull the new loginWithGoogle function
+    const { login, loginWithGoogle } = useAuth(); 
     const router = useRouter();
 
     const handleLogin = async () => {
@@ -55,14 +57,8 @@ export default function Login() {
             return;
         }
 
-        if (!login) {
-            Alert.alert("Auth Error", "Authentication service unavailable.");
-            return;
-        }
-
         setIsSubmitting(true);
         try {
-            // Note: Change this URL to your actual Railway endpoint if production
             const response = await fetch('https://api.movieboxing.com/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -81,22 +77,26 @@ export default function Login() {
                     username: data.username,
                     email: data.email
                 };
-
-                // CRITICAL: We now pass accessToken AND refreshToken
                 await login(data.accessToken, data.refreshToken, userPayload);
-
-                // Expo Router will usually auto-redirect if your layout 
-                // checks for the session, but you can also force it:
-                // router.replace('/home'); 
-
             } else {
                 Alert.alert("Ref Stopped the Fight", data.message || "Invalid credentials");
             }
         } catch (err) {
-            console.error("Login Fetch Error:", err);
             Alert.alert("Connection Error", "The arena is unreachable.");
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const handleGoogleLogin = async () => {
+        setIsGoogleSubmitting(true);
+        try {
+            await loginWithGoogle();
+        } catch (err) {
+            // Error is already logged in the provider, but we alert the user
+            Alert.alert("Google Login Failed", "Could not connect to Google services.");
+        } finally {
+            setIsGoogleSubmitting(false);
         }
     };
 
@@ -109,7 +109,6 @@ export default function Login() {
 
             <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}>
 
-                {/* Logo & Header Section */}
                 <View className="mb-10 items-center">
                     <HeaderLogo />
                     <Text className="text-5xl font-black uppercase italic tracking-tighter text-white">
@@ -118,14 +117,11 @@ export default function Login() {
                     <View className="h-1 w-12 bg-red-600 mt-2 self-center rounded-full" />
                 </View>
 
-                {/* Login Card Container */}
                 <View className="bg-neutral-900/50 border-2 border-neutral-800 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
-
                     <View className="space-y-5">
-                        {/* Email Input */}
                         <View>
                             <Text className="text-neutral-500 text-[9px] font-black uppercase mb-2 ml-1 tracking-widest">Credentials</Text>
-                            <View className="bg-black border border-neutral-800 focus:border-red-600/50 rounded-2xl flex-row items-center px-4">
+                            <View className="bg-black border border-neutral-800 rounded-2xl flex-row items-center px-4">
                                 <Mail color="#525252" size={18} />
                                 <TextInput
                                     placeholder="Username or Email"
@@ -138,10 +134,9 @@ export default function Login() {
                             </View>
                         </View>
 
-                        {/* Password Input */}
                         <View className="mt-4">
                             <Text className="text-neutral-500 text-[9px] font-black uppercase mb-2 ml-1 tracking-widest">Security</Text>
-                            <View className="bg-black border border-neutral-800 focus:border-red-600/50 rounded-2xl flex-row items-center px-4">
+                            <View className="bg-black border border-neutral-800 rounded-2xl flex-row items-center px-4">
                                 <Lock color="#525252" size={18} />
                                 <TextInput
                                     placeholder="Password"
@@ -157,11 +152,9 @@ export default function Login() {
                             </View>
                         </View>
 
-                        {/* Login Button */}
                         <TouchableOpacity
                             onPress={handleLogin}
-                            disabled={isSubmitting}
-                            activeOpacity={0.8}
+                            disabled={isSubmitting || isGoogleSubmitting}
                             className={`mt-8 py-5 rounded-2xl flex-row items-center justify-center shadow-lg ${isSubmitting ? 'bg-neutral-800' : 'bg-red-600 shadow-red-900/40'}`}
                         >
                             {isSubmitting ? (
@@ -173,11 +166,38 @@ export default function Login() {
                                 </>
                             )}
                         </TouchableOpacity>
+
+                        {/* Divider */}
+                        <View className="flex-row items-center my-6">
+                            <View className="flex-1 h-[1px] bg-neutral-800" />
+                            <Text className="mx-4 text-neutral-600 font-black text-[10px] uppercase tracking-widest">OR</Text>
+                            <View className="flex-1 h-[1px] bg-neutral-800" />
+                        </View>
+
+                        {/* Google Login Button */}
+                        <TouchableOpacity
+                            onPress={handleGoogleLogin}
+                            disabled={isSubmitting || isGoogleSubmitting}
+                            activeOpacity={0.7}
+                            className="bg-black border border-neutral-800 py-4 rounded-2xl flex-row items-center justify-center"
+                        >
+                            {isGoogleSubmitting ? (
+                                <ActivityIndicator color="white" />
+                            ) : (
+                                <>
+                                    <Image 
+                                        source={{ uri: 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png' }} 
+                                        style={{ width: 18, height: 18 }}
+                                        className="mr-3"
+                                    />
+                                    <Text className="text-neutral-300 font-bold uppercase tracking-tight text-sm">Continue with Google</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
                     </View>
                 </View>
 
-                {/* Footer Link */}
-                <TouchableOpacity onPress={() => router.navigate('/register')} className="mt-8 items-center">
+                <TouchableOpacity onPress={() => router.replace('/register')} className="mt-8 items-center">
                     <Text className="text-neutral-500 font-bold text-xs uppercase tracking-tighter">
                         NEW TO THE LEAGUE? <Text className="text-red-600 font-black italic underline">CREATE ACCOUNT</Text>
                     </Text>

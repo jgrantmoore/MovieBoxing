@@ -136,7 +136,7 @@ export default function ProfileView({ userId }: { userId: string | number }) {
                         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                             {topMovies.map((movie) => (
                                 <MovieCard
-                                    key={movie.MovieId}
+                                    key={movie.MovieId + "profile" + userId}
                                     movieId={movie.MovieId}
                                     title={movie.Title}
                                     posterUrl={movie.PosterUrl}

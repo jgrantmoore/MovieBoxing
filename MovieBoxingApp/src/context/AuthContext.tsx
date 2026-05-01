@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import { GoogleSignin, statusCodes } from '../utils/googleAuth';
 
 interface User {
     userId: string;
@@ -12,34 +13,35 @@ interface AuthContextType {
     session: { accessToken: string; user: User } | null;
     loading: boolean;
     login: (accessToken: string, refreshToken: string, user: User) => Promise<void>;
+    loginWithGoogle: () => Promise<void>; // Added this
     logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    // We'll store the whole session object to match your web logic
     const [session, setSession] = useState<{ accessToken: string; user: User } | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        GoogleSignin.configure({
+            webClientId: '1036192699896-i3buhij8mq2j8g06a9046t0pbvv3voe1.apps.googleusercontent.com',
+            iosClientId: '1036192699896-3orvss0jdjti8occh5ktjnffev0fkm68.apps.googleusercontent.com',
+        });
+
         async function loadStorage() {
             try {
-                // 1. Pull everything from SecureStore
                 const accessToken = await SecureStore.getItemAsync('accessToken');
                 const refreshToken = await SecureStore.getItemAsync('refreshToken');
                 const userData = await SecureStore.getItemAsync('userData');
 
                 if (!refreshToken || !userData) {
-                    // No session at all, send them to login
                     setLoading(false);
                     return;
                 }
 
                 const parsedUser = JSON.parse(userData);
 
-                // 2. Try to refresh the session immediately on boot
-                // This ensures the accessToken is fresh for the first API calls
                 try {
                     const response = await fetch('https://api.movieboxing.com/api/auth/refresh', {
                         method: 'POST',
@@ -48,22 +50,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     });
 
                     if (response.ok) {
-                        const data = await response.json(); // Backend sends { accessToken }
-
-                        // Update SecureStore with the fresh access token
+                        const data = await response.json();
                         await SecureStore.setItemAsync('accessToken', data.accessToken);
-
-                        setSession({
-                            accessToken: data.accessToken,
-                            user: parsedUser
-                        });
+                        setSession({ accessToken: data.accessToken, user: parsedUser });
                     } else {
-                        // Refresh token was revoked or expired in the DB
                         await logout();
                     }
                 } catch (refreshErr) {
                     console.error("Silent refresh failed network call:", refreshErr);
-                    // If the network is just down, use the old token as a fallback
                     if (accessToken) {
                         setSession({ accessToken, user: parsedUser });
                     }
@@ -80,15 +74,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const login = async (accessToken: string, refreshToken: string, user: any) => {
         try {
             const userString = JSON.stringify(user);
-
-            // Store everything
             await SecureStore.setItemAsync('accessToken', accessToken);
             await SecureStore.setItemAsync('refreshToken', refreshToken);
             await SecureStore.setItemAsync('userData', userString);
-
             setSession({ accessToken, user });
         } catch (err) {
             console.error("SecureStore Save Error:", err);
+        }
+    };
+
+    /**
+     * Handles the Google Sign-In flow and exchanges the Google ID Token
+     * for a MovieBoxing session.
+     */
+    const loginWithGoogle = async () => {
+        try {
+            await GoogleSignin.hasPlayServices();
+            const { data } = await GoogleSignin.signIn();
+            const idToken = data?.idToken;
+
+            if (!idToken) throw new Error("No ID Token received from Google");
+
+            // Exchange the Google Token for our own JWTs
+            const response = await fetch('https://api.movieboxing.com/api/auth/google', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: idToken })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.text();
+                throw new Error(errorData || "Failed to authenticate with backend");
+            }
+
+            const responseData = await response.json();
+
+            // data should contain { accessToken, refreshToken, user }
+            await login(responseData.accessToken, responseData.refreshToken, responseData.user);
+
+        } catch (error: any) {
+            if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+                console.log("User cancelled Google Sign-in");
+            } else if (error.code === statusCodes.IN_PROGRESS) {
+                console.log("Sign in already in progress");
+            } else {
+                console.error("Google Auth Error:", error);
+                throw error; // Re-throw to handle in the UI (e.g., show an Alert)
+            }
         }
     };
 
@@ -96,7 +128,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
             const refreshToken = await SecureStore.getItemAsync('refreshToken');
 
-            // 1. Tell the backend to kill the session
+            // Logout from Google nativeside as well so they can switch accounts
+            const currentUser = GoogleSignin.getCurrentUser();
+            if (currentUser) {
+                await GoogleSignin.signOut();
+            }
+
             if (refreshToken) {
                 await fetch('https://api.movieboxing.com/api/auth/logout', {
                     method: 'POST',
@@ -107,7 +144,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (e) {
             console.error("Server-side logout failed", e);
         } finally {
-            // 2. Always clear local storage regardless of API success
             await SecureStore.deleteItemAsync('accessToken');
             await SecureStore.deleteItemAsync('refreshToken');
             await SecureStore.deleteItemAsync('userData');
@@ -116,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ session, login, logout, loading }}>
+        <AuthContext.Provider value={{ session, login, loginWithGoogle, logout, loading }}>
             {children}
         </AuthContext.Provider>
     );

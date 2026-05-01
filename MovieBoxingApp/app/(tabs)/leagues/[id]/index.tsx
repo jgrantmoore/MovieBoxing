@@ -3,7 +3,7 @@ import {
     View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image,
     FlatList, RefreshControl
 } from 'react-native';
-import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
+import { useLocalSearchParams, Stack, useRouter, router } from 'expo-router';
 import Animated, {
     LinearTransition,
     FadeInLeft,
@@ -543,7 +543,7 @@ const LeaderboardView = ({ leaderboard }: { leaderboard: any[] }) => {
                         key={player.TeamId}
                         className={`rounded-[2rem] p-6 mb-4 border-2 ${isFirst ? 'bg-red-600 border-red-500' : 'bg-neutral-900/40 border-neutral-800'}`}
                     >
-                        <View className="flex-row justify-between items-center">
+                        <TouchableOpacity onPress={() => router.push(`/profile/${player.OwnerUserId}`)} className="flex-row justify-between items-center">
                             <View className="flex-1 pr-4">
                                 <Text className="text-xl font-black text-white uppercase italic" numberOfLines={2}>{player.TeamName}</Text>
                                 <Text className={`text-[10px] uppercase font-bold tracking-tight ${isFirst ? 'text-white/70' : 'text-neutral-500'}`} numberOfLines={1}>
@@ -554,7 +554,7 @@ const LeaderboardView = ({ leaderboard }: { leaderboard: any[] }) => {
                                 <Text className="text-2xl font-mono font-black text-white">{formatCurrency(player.TotalRevenue)}</Text>
                                 <Text className={`text-[8px] font-bold uppercase tracking-tighter ${isFirst ? 'text-white/50' : 'text-neutral-600'}`}>Total Gross</Text>
                             </View>
-                        </View>
+                        </TouchableOpacity>
                     </View>
                 );
             })}

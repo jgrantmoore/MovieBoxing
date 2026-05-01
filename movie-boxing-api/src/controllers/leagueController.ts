@@ -266,6 +266,7 @@ export const getLeaderboard = async (req: Request, res: Response) => {
                     t."TeamId",
                     t."TeamName",
                     u."DisplayName" as "OwnerName",
+                    u."UserId" as "OwnerUserId",
                     SUM(COALESCE(m."BoxOffice", 0)) as "TotalRevenue",
                     -- Fix: Changed tm."IsStarting" = 1 to tm."IsStarting" = true
                     COUNT(CASE WHEN m."InternationalReleaseDate" <= NOW() AND tm."IsStarting" = true THEN 1 END) as "ReleasedCount"
