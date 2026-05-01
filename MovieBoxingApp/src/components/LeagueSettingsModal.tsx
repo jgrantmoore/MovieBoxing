@@ -81,6 +81,7 @@ export const LeagueSettingsModal = ({
                 LeagueName: leagueName,
                 StartingNumber: parseInt(starters),
                 BenchNumber: parseInt(bench),
+                Public: !privateLeague,
                 FreeAgentsAllowed: freeAgents,
                 StartDate: startDate.toISOString().split('T')[0],
                 EndDate: endDate.toISOString().split('T')[0],

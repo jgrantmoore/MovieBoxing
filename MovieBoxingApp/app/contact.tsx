@@ -7,47 +7,49 @@ import {
     ScrollView,
     Alert,
     ActivityIndicator,
-    KeyboardAvoidingView, // Add this
-    Platform               // Add this
+    KeyboardAvoidingView,
+    Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { apiRequest } from '../src/api/client';
+import { useAuth } from '../src/context/AuthContext';
 
 export default function ContactUs() {
-    const [formData, setFormData] = useState({
-        name: '',
-        email: '',
-        message: ''
-    });
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+    const { session, loading: authLoading } = useAuth();
+
+    const [formData, setFormData] = useState({
+        name: session?.user.displayName || '',
+        email: session?.user.email || '',
+        subject: '',
+        message: ''
+    });
+
 
     const handleSubmit = async () => {
+        // Validation
         if (!formData.name || !formData.email || !formData.message) {
-            Alert.alert("Ref Stopped the Fight", "Please fill in all fields.");
+            Alert.alert("Ref Stopped the Fight", "Please fill in all required fields.");
             return;
         }
 
         setLoading(true);
         try {
-            const response = await fetch("https://formsubmit.co/jgrantmoore17@gmail.com", {
-                method: "POST",
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(formData)
+            await apiRequest(`/contact/create`, {
+                method: 'POST',
+                body: JSON.stringify({ Name: formData.name, Email: formData.email, Subject: formData.subject || "Contact Via App", Message: formData.message })
             });
-
-            if (response.ok) {
-                Alert.alert("Victory!", "Your message has been sent. We'll get back to you soon!");
-                setFormData({ name: '', email: '', message: '' });
-                router.back();
-            } else {
-                throw new Error();
-            }
-        } catch (error) {
-            Alert.alert("Arena Error", "Could not reach the server. Check your connection.");
+            Alert.alert("Victory!", "Your message has been sent. We'll get back to you soon!");
+            setFormData({ name: '', email: '', subject: '', message: '' });
+            router.back();
+        } catch (error: any) {
+            console.error("Contact Submission Error:", error);
+            Alert.alert(
+                "Arena Error",
+                error.response?.data || "Could not reach the server. Check your connection."
+            );
         } finally {
             setLoading(false);
         }
@@ -55,15 +57,13 @@ export default function ContactUs() {
 
     return (
         <SafeAreaView className="flex-1 bg-slate-950" edges={['top']}>
-            {/* 1. Wrap the ScrollView in KeyboardAvoidingView */}
-            <KeyboardAvoidingView 
+            <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 className="flex-1"
             >
-                <ScrollView 
+                <ScrollView
                     className="flex-1 px-6"
                     keyboardShouldPersistTaps="handled"
-                    // 2. Add extra padding at the bottom so you can scroll past the button
                     contentContainerStyle={{ paddingBottom: 60 }}
                 >
                     <View className="py-12">
@@ -75,7 +75,7 @@ export default function ContactUs() {
                                 ← Back
                             </Text>
                         </TouchableOpacity>
-                        
+
                         <View className="items-center mb-12">
                             <Text className="text-5xl font-black uppercase italic tracking-tighter text-white">
                                 CONTACT <Text className="text-red-600">US</Text>
@@ -86,32 +86,41 @@ export default function ContactUs() {
                         </View>
 
                         <View className="bg-neutral-900/40 border border-neutral-800 p-6 rounded-[2.5rem]">
-                            {/* Name Input */}
-                            <View className="mb-6">
+                            {/* Locked Name Input */}
+                            <View className="mb-6 opacity-60">
                                 <Text className="text-[10px] font-bold uppercase tracking-widest mb-2 text-neutral-400 ml-1">
-                                    Name
+                                    Your Name
                                 </Text>
                                 <TextInput
                                     value={formData.name}
-                                    onChangeText={(val) => setFormData({ ...formData, name: val })}
-                                    placeholder="Your Name"
-                                    placeholderTextColor="#404040"
-                                    className="w-full px-4 py-4 bg-black border border-neutral-800 rounded-2xl text-white font-bold"
+                                    editable={false} // Prevents keyboard from opening
+                                    selectTextOnFocus={false} // Prevents text selection
+                                    className="w-full px-4 py-4 bg-neutral-950 border border-neutral-900 rounded-2xl text-neutral-400 font-bold"
                                 />
                             </View>
 
-                            {/* Email Input */}
-                            <View className="mb-6">
+                            {/* Locked Email Input */}
+                            <View className="mb-6 opacity-60">
                                 <Text className="text-[10px] font-bold uppercase tracking-widest mb-2 text-neutral-400 ml-1">
-                                    Email
+                                    Your Email
                                 </Text>
                                 <TextInput
                                     value={formData.email}
-                                    onChangeText={(val) => setFormData({ ...formData, email: val })}
-                                    placeholder="Your Email"
+                                    editable={false}
+                                    className="w-full px-4 py-4 bg-neutral-950 border border-neutral-900 rounded-2xl text-neutral-400 font-bold"
+                                />
+                            </View>
+
+                            {/* Optional Subject Input */}
+                            <View className="mb-6">
+                                <Text className="text-[10px] font-bold uppercase tracking-widest mb-2 text-neutral-400 ml-1">
+                                    Subject
+                                </Text>
+                                <TextInput
+                                    value={formData.subject}
+                                    onChangeText={(val) => setFormData({ ...formData, subject: val })}
+                                    placeholder="What is this about?"
                                     placeholderTextColor="#404040"
-                                    keyboardType="email-address"
-                                    autoCapitalize="none"
                                     className="w-full px-4 py-4 bg-black border border-neutral-800 rounded-2xl text-white font-bold"
                                 />
                             </View>

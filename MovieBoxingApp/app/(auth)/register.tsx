@@ -151,7 +151,7 @@ export default function Register() {
                             <View className="bg-black border border-neutral-800 rounded-2xl flex-row items-center px-4">
                                 <User color="#525252" size={16} />
                                 <TextInput
-                                    className="flex-1 h-14 ml-3 text-white font-bold"
+                                    className="flex-1 h-14 ml-3 text-white font-bold leading-none pt-1"
                                     placeholder="John"
                                     placeholderTextColor="#404040"
                                     value={formData.name}
@@ -184,7 +184,7 @@ export default function Register() {
                         <View className="bg-black border border-neutral-800 rounded-2xl flex-row items-center px-4">
                             <Mail color="#525252" size={16} />
                             <TextInput
-                                className="flex-1 h-14 ml-3 text-white font-bold"
+                                className="flex-1 h-14 ml-3 text-white font-bold leading-none pt-1"
                                 placeholder="john@example.com"
                                 placeholderTextColor="#404040"
                                 keyboardType="email-address"

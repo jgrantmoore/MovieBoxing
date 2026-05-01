@@ -130,7 +130,7 @@ export default function Login() {
                                 <TextInput
                                     placeholder="Username or Email"
                                     placeholderTextColor="#404040"
-                                    className="flex-1 h-14 ml-3 text-white font-bold"
+                                    className="flex-1 h-14 ml-3 text-white font-bold leading-none pt-1"
                                     value={email}
                                     onChangeText={setEmail}
                                     autoCapitalize="none"
@@ -146,7 +146,7 @@ export default function Login() {
                                 <TextInput
                                     placeholder="Password"
                                     placeholderTextColor="#404040"
-                                    className="flex-1 h-14 ml-3 text-white font-bold"
+                                    className="flex-1 h-14 ml-3 text-white font-bold leading-none pt-1"
                                     value={password}
                                     onChangeText={setPassword}
                                     secureTextEntry={!showPassword}
