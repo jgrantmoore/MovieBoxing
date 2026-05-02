@@ -48,7 +48,13 @@
         }
       ],
       "expo-secure-store",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.1036192699896-3orvss0jdjti8occh5ktjnffev0fkm68"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -1,17 +1,18 @@
 import { type Request, type Response } from 'express';
 import { pool } from '../config/db.js';
 import * as bcrypt from 'bcrypt';
+import { snapshotEndingLeagues } from '../services/leagueService.js';
 
 /**
  * Create a new league and automatically assign the creator a team.
  * PROTECTED: Requires authenticateToken middleware
  */
 export const createLeague = async (req: Request, res: Response) => {
-    const adminUserId = req.user!.userId; 
+    const adminUserId = req.user!.userId;
     const body = req.body;
-    
+
     const requiredFields = [
-        'LeagueName', 'StartDate', 'EndDate', 'StartingNumber', 
+        'LeagueName', 'StartDate', 'EndDate', 'StartingNumber',
         'BenchNumber', 'PreferredReleaseDate', 'FreeAgentsAllowed'
     ];
 
@@ -103,7 +104,6 @@ export const deleteLeague = async (req: Request, res: Response) => {
         `, [leagueId]);
 
         await client.query('DELETE FROM "TeamMovies" WHERE "LeagueId" = $1', [leagueId]);
-        await client.query('DELETE FROM "LeagueMovieSnapshots" WHERE "LeagueId" = $1', [leagueId]);
         await client.query('DELETE FROM "DraftPlans" WHERE "LeagueId" = $1', [leagueId]);
         await client.query('DELETE FROM "Teams" WHERE "LeagueId" = $1', [leagueId]);
         await client.query('DELETE FROM "Leagues" WHERE "LeagueId" = $1', [leagueId]);
@@ -158,16 +158,25 @@ export const getLeague = async (req: Request, res: Response) => {
     try {
         const query = `
             SELECT 
-                l.*, admin_u."DisplayName" AS "AdminName",
-                t."TeamId", t."TeamName", t."DraftOrder" ,u."UserId" as "OwnerUserId", u."DisplayName" AS "OwnerName",
-                m."MovieId", m."Title" AS "MovieTitle", m."BoxOffice", m."PosterUrl", m."TMDBId",
-                m."InternationalReleaseDate", p."OrderDrafted", p."DateAdded"
+                l.*, 
+                admin_u."DisplayName" AS "AdminName",
+                winner_u."DisplayName" AS "LeagueWinnerName",
+                winner_u."UserId" AS "LeagueWinnerId",
+                t."TeamId", t."TeamName", t."DraftOrder", 
+                u."UserId" as "OwnerUserId", u."DisplayName" AS "OwnerName",
+                m."MovieId", m."Title" AS "MovieTitle", m."PosterUrl", m."TMDBId",
+                m."InternationalReleaseDate", p."OrderDrafted", p."DateAdded",
+                -- Use frozen box office if snapshot exists, otherwise live data
+                COALESCE(lms."FrozenBoxOffice", m."BoxOffice") AS "DisplayBoxOffice"
             FROM "Leagues" l
             JOIN "Users" admin_u ON l."AdminUserId" = admin_u."UserId" 
+            LEFT JOIN "Users" winner_u ON l."LeagueWinnerId" = winner_u."UserId"
             JOIN "Teams" t ON l."LeagueId" = t."LeagueId"
             JOIN "Users" u ON t."OwnerUserId" = u."UserId"
             LEFT JOIN "TeamMovies" p ON t."TeamId" = p."TeamId"
             LEFT JOIN "Movies" m ON p."MovieId" = m."MovieId"
+            LEFT JOIN "LeagueMovieSnapshots" lms ON m."MovieId" = lms."MovieId" 
+                AND l."EndDate"::date = lms."SnapshotDate"
             WHERE l."LeagueId" = $1
             ORDER BY t."TeamName" ASC, p."OrderDrafted" ASC;
         `;
@@ -176,15 +185,20 @@ export const getLeague = async (req: Request, res: Response) => {
         if (rows.length === 0) return res.status(404).send("League not found");
 
         const firstRow = rows[0];
+
+        // Format base league data
         const leagueData: any = {
             LeagueId: firstRow.LeagueId || firstRow.leagueid,
             LeagueName: firstRow.LeagueName || firstRow.leaguename,
+            AdminName: firstRow.AdminName || firstRow.adminname,
             StartDate: firstRow.StartDate || firstRow.startdate,
             EndDate: firstRow.EndDate || firstRow.enddate,
-            HasDrafted: firstRow.HasDrafted,
-            IsDrafting: firstRow.IsDrafting,
+            HasDrafted: firstRow.HasDrafted || firstRow.hasdrafted,
+            IsDrafting: firstRow.IsDrafting || firstRow.isdrafting,
+            IsOver: (firstRow.LeagueWinnerId || firstRow.leaguewinnerid) !== null,
+            WinnerId: firstRow.LeagueWinnerId || firstRow.leaguewinnerid,
+            WinnerName: firstRow.LeagueWinnerName || firstRow.leaguewinnername,
             isPrivate: (firstRow.JoinPasswordHash || firstRow.joinpasswordhash) != null,
-            AdminName: firstRow.AdminName || firstRow.adminname,
             DraftUsersTurn: firstRow.DraftUsersTurn || firstRow.draftusersturn,
             Rules: {
                 Starting: firstRow.StartingNumber || firstRow.startingnumber,
@@ -194,14 +208,17 @@ export const getLeague = async (req: Request, res: Response) => {
             Teams: []
         };
 
+        // Auth-specific logic
         if (userId > 0) {
             leagueData.Joined = rows.some(row => (row.OwnerUserId || row.owneruserid) === userId);
             leagueData.isAdmin = (firstRow.AdminUserId || firstRow.adminuserid) === userId;
         }
 
+        // Aggregate Teams and Picks
         rows.forEach(row => {
             const rowTeamId = row.TeamId || row.teamid;
             let team = leagueData.Teams.find((t: any) => t.TeamId === rowTeamId);
+
             if (!team) {
                 team = {
                     TeamId: rowTeamId,
@@ -213,18 +230,13 @@ export const getLeague = async (req: Request, res: Response) => {
                 };
                 leagueData.Teams.push(team);
             }
-            
+
             const rowMovieId = row.MovieId || row.movieid;
-
-            if (row.PosterUrl == "NULL") {
-                console.log("Poster URL is null for movie: " + row.MovieTitle);
-            }
-
             if (rowMovieId) {
                 team.Picks.push({
                     MovieId: rowMovieId,
                     Title: row.MovieTitle || row.movietitle,
-                    BoxOffice: row.BoxOffice || row.boxoffice,
+                    BoxOffice: row.DisplayBoxOffice || row.displayboxoffice,
                     PosterUrl: row.PosterUrl || row.posterurl,
                     OrderDrafted: row.OrderDrafted || row.orderdrafted,
                     ReleaseDate: row.InternationalReleaseDate || row.internationalreleasedate,
@@ -235,7 +247,7 @@ export const getLeague = async (req: Request, res: Response) => {
 
         return res.status(200).json(leagueData);
     } catch (error) {
-        console.error("League Fetch Error:", error);
+        console.error("Detailed League Fetch Error:", error);
         res.status(500).send("Internal Server Error");
     }
 };
@@ -254,6 +266,7 @@ export const getLeaderboard = async (req: Request, res: Response) => {
                 SELECT 
                     t."TeamId",
                     t."TeamName",
+                    t."OwnerUserId",
                     u."DisplayName" as "OwnerName",
                     SUM(COALESCE(m."BoxOffice", 0)) as "TotalRevenue",
                     -- Fix: Changed tm."IsStarting" = 1 to tm."IsStarting" = true
@@ -293,24 +306,77 @@ export const getLeaderboard = async (req: Request, res: Response) => {
 
 /**
  * Get basic meta-info about a league.
- * PUBLIC
+ * MIXED: Works for both logged-in and anonymous users.
  */
 export const getLeagueInfo = async (req: Request, res: Response) => {
     const leagueId = req.query.id;
     if (!leagueId) return res.status(400).send("League ID is required");
 
+    // 1. Soft Auth: Middleware handles this. 
+    // If user is not logged in, userId is -1.
+    const userId = req.user?.userId || -1;
+
     try {
         const query = `
             SELECT 
-                l."LeagueId", l."LeagueName", u."DisplayName" AS "AdminDisplayName", 
-                l."StartDate", l."EndDate", l."StartingNumber", 
-                l."BenchNumber", l."PreferredReleaseDate", l."FreeAgentsAllowed"
+                l."LeagueId",
+                l."LeagueName",
+                l."AdminUserId",
+                u."DisplayName" AS "AdminDisplayName", 
+                l."StartDate",
+                l."EndDate",
+                l."StartingNumber", 
+                l."BenchNumber",
+                l."PreferredReleaseDate",
+                l."FreeAgentsAllowed",
+                l."HasDrafted",
+                l."IsDrafting",
+                l."JoinPasswordHash",
+                l."LeagueWinnerId",
+                winner_u."DisplayName" AS "LeagueWinnerName",
+                (SELECT COUNT(1) FROM "Teams" t WHERE t."LeagueId" = l."LeagueId" AND t."OwnerUserId" = $2) AS "IsJoined"
             FROM "Leagues" l
             INNER JOIN "Users" u ON l."AdminUserId" = u."UserId"
+            LEFT JOIN "Users" winner_u ON l."LeagueWinnerId" = winner_u."UserId"
             WHERE l."LeagueId" = $1
         `;
-        const { rows } = await pool.query(query, [parseInt(leagueId as string)]);
-        return rows.length > 0 ? res.status(200).json(rows[0]) : res.status(404).send("League not found");
+
+        const { rows } = await pool.query(query, [parseInt(leagueId as string), userId]);
+
+        if (rows.length === 0) {
+            return res.status(404).send("League not found");
+        }
+
+        const row = rows[0];
+        const rowAdminId = row.AdminUserId || row.adminuserid;
+
+        // 2. Format the response to match your standard League object
+        const response = {
+            LeagueId: row.LeagueId || row.leagueid,
+            LeagueName: row.LeagueName || row.leaguename,
+            AdminName: row.AdminDisplayName || row.admindisplayname,
+            StartDate: row.StartDate || row.startdate,
+            EndDate: row.EndDate || row.enddate,
+            HasDrafted: row.HasDrafted || row.hasdrafted,
+            IsDrafting: row.IsDrafting || row.isdrafting,
+            isPrivate: (row.JoinPasswordHash || row.joinpasswordhash) != null,
+            LeagueWinnerId: row.LeagueWinnerId || row.leaguewinnerid,
+            LeagueWinnerName: row.LeagueWinnerName || row.leaguewinnername,
+            Rules: {
+                Starting: row.StartingNumber || row.startingnumber,
+                Bench: row.BenchNumber || row.benchnumber,
+                FreeAgents: row.FreeAgentsAllowed || row.freeagentsallowed,
+                PreferredRelease: row.PreferredReleaseDate || row.preferredreleasedate
+            },
+            // 3. Add auth-specific fields only if user is logged in
+            ...(userId > 0 && {
+                isJoined: parseInt(row.IsJoined || row.isjoined) > 0,
+                isAdmin: rowAdminId === userId
+            })
+        };
+
+        return res.status(200).json(response);
+
     } catch (error) {
         console.error("League Info Fetch Error:", error);
         return res.status(500).send("Internal Server Error");
@@ -365,7 +431,7 @@ export const getLeagueReleaseOrder = async (req: Request, res: Response) => {
 export const searchLeagues = async (req: Request, res: Response) => {
     // 1. Extract query parameter '?q=searchterm'
     const searchQuery = req.query.q || "";
-    
+
     // 2. Soft Auth: Middleware handles this. 
     // If the route is public, req.user will be undefined.
     const userId = req.user?.userId || -1;
@@ -406,7 +472,7 @@ export const searchLeagues = async (req: Request, res: Response) => {
         // 4. Map the results
         const leagues = rows.map(row => {
             const rowAdminId = row.AdminUserId || row.adminuserid;
-            
+
             return {
                 LeagueId: row.LeagueId || row.leagueid,
                 LeagueName: row.LeagueName || row.leaguename,
@@ -440,13 +506,12 @@ export const searchLeagues = async (req: Request, res: Response) => {
 
 /**
  * Update an existing league (admin only).
- * PROTECTED: Requires authenticateToken, requireAuth
+ * Rules: EndDate cannot be in the past.
  */
 export const updateLeague = async (req: Request, res: Response) => {
     const leagueId = req.query.id;
     if (!leagueId) return res.status(400).send("League ID is required");
 
-    // Grabbed from our new middleware
     const userId = req.user!.userId;
     const body = req.body;
 
@@ -455,12 +520,79 @@ export const updateLeague = async (req: Request, res: Response) => {
     }
 
     try {
+        // Date validation
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); // Normalize to start of today
+
+        
+
+        if (body.EndDate !== undefined) {
+            const newEndDate = new Date(body.EndDate);
+
+            if (newEndDate < now) {
+                return res.status(400).send("Validation Error: League End Date cannot be in the past.");
+            }
+
+            // Optional: If StartDate is also in the body, check the range
+            if (body.StartDate !== undefined) {
+                if (new Date(body.EndDate) < new Date(body.StartDate)) {
+                    return res.status(400).send("Validation Error: End Date must be after Start Date.");
+                }
+            } else {
+                // Compare to the current startdate since it's not being updated
+                const currentStartDateResult = await pool.query(
+                    'SELECT "StartDate" FROM "Leagues" WHERE "LeagueId" = $1',
+                    [leagueId]
+                );
+
+                if (currentStartDateResult.rows.length === 0) {
+                    return res.status(404).send("League not found");
+                }
+
+                const currentStartDate = currentStartDateResult.rows[0].StartDate || currentStartDateResult.rows[0].startdate;
+
+                if (currentStartDate > newEndDate) {
+                    return res.status(400).send("Validation Error: End Date must be after the current Start Date.");
+                }
+            }
+        }
+
+        if (body.StartDate !== undefined) {
+            const newStartDate = new Date(body.StartDate);
+
+            if (newStartDate < now) {
+                return res.status(400).send("Validation Error: League Start Date cannot be in the past.");
+            }
+
+            // Optional: If StartDate is also in the body, check the range
+            if (body.EndDate !== undefined) {
+                if (new Date(body.EndDate) < new Date(body.StartDate)) {
+                    return res.status(400).send("Validation Error: End Date must be after Start Date.");
+                }
+            } else {
+                // Compare to the current enddate since it's not being updated
+                const currentEndDateResult = await pool.query(
+                    'SELECT "EndDate" FROM "Leagues" WHERE "LeagueId" = $1',
+                    [leagueId]
+                );
+
+                if (currentEndDateResult.rows.length === 0) {
+                    return res.status(404).send("League not found");
+                }
+
+                const currentEndDate = currentEndDateResult.rows[0].EndDate || currentEndDateResult.rows[0].enddate;
+
+                if (newStartDate > currentEndDate) {
+                    return res.status(400).send("Validation Error: Start Date must be before the current End Date.");
+                }
+            }
+        }
+
+
         const setParts: string[] = [];
         const values: any[] = [];
         let paramIndex = 1;
 
-        // 1. Map incoming body to SQL columns
-        // We use double quotes for Postgres case-sensitivity safety
         if (body.LeagueName !== undefined) {
             setParts.push(`"LeagueName" = $${paramIndex++}`);
             values.push(body.LeagueName);
@@ -481,6 +613,9 @@ export const updateLeague = async (req: Request, res: Response) => {
             setParts.push(`"BenchNumber" = $${paramIndex++}`);
             values.push(body.BenchNumber);
         }
+        if (body.Public == true) {
+            setParts.push(`"JoinPasswordHash" = NULL`);
+        }
         if (body.JoinPassword !== undefined) {
             const saltRounds = 12;
             const hash = await bcrypt.hash(body.JoinPassword, saltRounds);
@@ -500,14 +635,11 @@ export const updateLeague = async (req: Request, res: Response) => {
             return res.status(400).send("No valid fields to update");
         }
 
-        // Add the WHERE clause parameters at the end
         const leagueIdParam = paramIndex++;
         const userIdParam = paramIndex++;
         values.push(parseInt(leagueId as string));
         values.push(userId);
 
-        // 2. The Postgres Update Query
-        // Note: OUTPUT INSERTED.* becomes RETURNING * in Postgres
         const query = `
             UPDATE "Leagues"
             SET ${setParts.join(', ')}
@@ -526,4 +658,14 @@ export const updateLeague = async (req: Request, res: Response) => {
         console.error(`Error updating league: ${error}`);
         return res.status(500).send("Internal server error");
     }
+};
+
+/**
+ * Manually trigger a snapshot of ending leagues.
+ * THIS IS A TEST ENDPOINT
+ */
+export const leagueSnapshotUpdate = async (req: Request, res: Response) => {
+    // Run the service logic
+    await snapshotEndingLeagues();
+    return res.status(200).send("Snapshot manually triggered and completed.");
 };

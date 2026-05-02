@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { Trophy, Film, Scale, Zap, UserPlus, ChevronRight, Settings } from 'lucide-react-native';
 import { apiRequest } from '../api/client';
 import { useRouter } from 'expo-router';
@@ -45,7 +45,7 @@ export default function ProfileView({ userId }: { userId: string | number }) {
             setStats([
                 { label: "Total Earnings", value: `$${data.TotalEarnings.toLocaleString()}`, icon: <Zap size={20} color="#facc15" /> },
                 { label: "Leagues Won", value: data.LeaguesWon, icon: <Trophy size={20} color="#dc2626" /> },
-                { label: "Total Trades", value: "--", icon: <Scale size={20} color="#3b82f6" /> },
+                { label: "Total Trades", value: data.TotalTrades, icon: <Scale size={20} color="#3b82f6" /> },
                 { label: "Movies Picked", value: data.MovieCount, icon: <Film size={20} color="#a855f7" /> },
             ]);
         } catch (err) {
@@ -63,6 +63,13 @@ export default function ProfileView({ userId }: { userId: string | number }) {
         }
     }
 
+    const [refreshing, setRefreshing] = useState(false);
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await Promise.all([fetchProfile(), fetchTopMovies()]);
+        setRefreshing(false);
+    };
+
     if (loading) {
         return (
             <View className="flex-1 bg-slate-950 items-center justify-center">
@@ -72,7 +79,16 @@ export default function ProfileView({ userId }: { userId: string | number }) {
     }
 
     return (
-        <ScrollView className="flex-1 bg-slate-950">
+        <ScrollView
+            className="flex-1 bg-slate-950"
+            refreshControl={
+                <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor="#dc2626"
+                />
+            }
+        >
             <View className="px-6 py-12">
                 {/* Header */}
                 <View className="border-b border-white/10 pb-10 mb-10">
@@ -120,7 +136,7 @@ export default function ProfileView({ userId }: { userId: string | number }) {
                         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                             {topMovies.map((movie) => (
                                 <MovieCard
-                                    key={movie.MovieId}
+                                    key={movie.MovieId + "profile" + userId}
                                     movieId={movie.MovieId}
                                     title={movie.Title}
                                     posterUrl={movie.PosterUrl}

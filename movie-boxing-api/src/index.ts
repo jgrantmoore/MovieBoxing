@@ -9,6 +9,8 @@ import userRoutes from './routes/userRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import teamRoutes from './routes/teamRoutes.js';
 import draftRoutes from './routes/draftRoutes.js';
+import tradeRoutes from './routes/tradeRoutes.js';
+import contactRoutes from './routes/contactRoutes.js';
 import cron from 'node-cron';
 import { syncMovieData } from './services/movieService.js';
 import { snapshotEndingLeagues } from './services/leagueService.js';
@@ -53,6 +55,8 @@ app.use('/api/user', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/drafts', draftRoutes);
+app.use('/api/trades', tradeRoutes);
+app.use('/api/contact', contactRoutes);
 
 // Cron and Health Check
 
@@ -61,8 +65,11 @@ const cronOptions = {
   timezone: "America/New_York"
 };
 
-cron.schedule('0 1 * * *', () => syncMovieData());
-cron.schedule('0 2 * * *', () => snapshotEndingLeagues());
+
+//Runs at 11:00 PM EST every day to update movie data including box office
+cron.schedule('0 3 * * *', () => syncMovieData());
+//Runs at 12:05 AM EST every day to snapshot box office for leagues that ended the previous day
+cron.schedule('5 4 * * *', () => snapshotEndingLeagues());
 app.get('/health', (req, res) => res.send('Movie Boxing API is Live!'));
 
 httpServer.listen(port, () => {

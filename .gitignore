@@ -35,4 +35,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.github/workflows/main_movie-boxing-api-flex.yml
+.vscode/

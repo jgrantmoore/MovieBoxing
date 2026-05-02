@@ -36,7 +36,6 @@ export const MovieCard: React.FC<MovieCardProps> = ({
   const formatRevenue = (rev: number) => {
     if (rev >= 1000000000) return `$${(rev / 1000000000).toFixed(2)}B`;
     if (rev >= 1000000) return `$${(rev / 1000000).toFixed(1)}M`;
-    if (rev > 0) return `$${(rev / 1000).toFixed(0)}K`;
     return "$0.0";
   };
 
@@ -62,6 +61,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
             source={{ uri: `https://image.tmdb.org/t/p/w400${posterUrl}` }} 
             className="w-full h-full"
             resizeMode="cover"
+            fadeDuration={300} // Smooths out the "pop" on Android
           />
         ) : (
           <View className="px-4">
@@ -73,14 +73,17 @@ export const MovieCard: React.FC<MovieCardProps> = ({
         
         <View className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/80 border border-white/10">
           <Text className="text-[8px] font-black uppercase text-white tracking-widest">
-            {isBench ? 'Bench' : 'Start'}
+            {isBench ? 'Bench' : 'Starts'}
           </Text>
         </View>
       </View>
 
-      <View className="mt-3 h-10">
+      <View className="mt-3 h-12 flex-col justify-between">
         <Text numberOfLines={2} className={`font-black text-xs uppercase italic leading-tight ${isEmpty ? 'text-neutral-600' : 'text-white'}`}>
           {title}
+        </Text>
+        <Text className={`text-[9px] font-black uppercase mt-1 ${isEmpty ? 'text-neutral-700' : 'text-neutral-500'}`}>
+          {relDateUTC ? relDateUTC.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : 'Release Date TBD'}
         </Text>
       </View>
 

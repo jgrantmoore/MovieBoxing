@@ -66,6 +66,7 @@ export const getMovies = async (req: Request, res: Response) => {
 /**
  * Global update for all movies in the DB.
  * Syncs Box Office and Release Dates from TMDB.
+ * This is a TEST ENDPOINT
  */
 export const localBoxOfficeUpdate = async (req: Request, res: Response) => {
     // Run the service logic
@@ -79,7 +80,8 @@ export const localBoxOfficeUpdate = async (req: Request, res: Response) => {
  */
 export const searchMovies = async (req: Request, res: Response) => {
     const query = req.query.q as string;
-    const { StartDate, EndDate } = req.body;
+    // Extract LeagueId from the body
+    const { StartDate, EndDate, LeagueId } = req.body;
 
     if (!query) {
         return res.status(400).send("Query parameter 'q' is required");
@@ -101,20 +103,41 @@ export const searchMovies = async (req: Request, res: Response) => {
         const filteredList = rawResults.filter((movie: any) => {
             if (!movie.release_date) return false;
             const releaseDate = new Date(movie.release_date);
-            
             const afterStart = StartDate ? releaseDate >= new Date(StartDate) : true;
             const beforeEnd = EndDate ? releaseDate <= new Date(EndDate) : true;
-            
             return afterStart && beforeEnd;
         });
 
-        // 3. Fetch Full Details in parallel
-        // TMDB allows up to 40 reqs/10s, so Promise.all is fine for a single search result set (usually ~20 movies)
+        // 3. Fetch Full Details + Check Ownership in Parallel
         const fullDetailResults = await Promise.all(
             filteredList.map(async (movie: any) => {
+                // A. Fetch TMDB Details
                 const detailUrl = `https://api.themoviedb.org/3/movie/${movie.id}?language=en-US`;
                 const detailRes = await fetch(detailUrl, { method: 'GET', headers });
-                return await detailRes.json();
+                const details = await detailRes.json();
+
+                // B. Check if movie is owned in this league (Only if LeagueId is provided)
+                let ownedBy = null;
+                if (LeagueId) {
+                    const ownerQuery = `
+                        SELECT t."TeamName", u."DisplayName" as "Owner"
+                        FROM "TeamMovies" tm
+                        JOIN "Teams" t ON tm."TeamId" = t."TeamId"
+                        JOIN "Users" u ON t."OwnerUserId" = u."UserId"
+                        JOIN "Movies" m ON tm."MovieId" = m."MovieId"
+                        WHERE tm."LeagueId" = $1 AND m."TMDBId" = $2
+                        LIMIT 1
+                    `;
+                    const ownerRes = await pool.query(ownerQuery, [LeagueId, movie.id]);
+                    if (ownerRes.rows.length > 0) {
+                        ownedBy = ownerRes.rows[0];
+                    }
+                }
+
+                return {
+                    ...details,
+                    OwnedBy: ownedBy // Will be null if leagueId missing or movie is free agent
+                };
             })
         );
 

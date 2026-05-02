@@ -64,15 +64,19 @@ export async function syncMovieData() {
                     const newPosterUrl = movieData.poster_path ? movieData.poster_path : movie.PosterUrl;
                     const hasPosterChanged = newPosterUrl !== (movie.PosterUrl);
 
-                    if (hasBoxOfficeChanged || hasUSReleaseDateChanged || hasINTLReleaseDateChanged || hasPosterChanged) {
+                    const newTitle = movieData.title ? movieData.title : movie.Title;
+                    const hasTitleChanged = newTitle !== (movie.Title);
+
+                    if (hasBoxOfficeChanged || hasUSReleaseDateChanged || hasINTLReleaseDateChanged || hasPosterChanged || hasTitleChanged) {
                         // Fixed the trailing comma/duplicate column in the SQL query
                         const query = `
                             UPDATE "Movies"
                             SET "BoxOffice" = $1, 
                                 "USReleaseDate" = $2,
                                 "InternationalReleaseDate" = $3,
-                                "PosterUrl" = $4
-                            WHERE "TMDBId" = $5
+                                "PosterUrl" = $4,
+                                "Title" = $5
+                            WHERE "TMDBId" = $6
                         `;
 
                         const newRevenue = (movieData.revenue == null) ? 0 : movieData.revenue;
@@ -82,6 +86,7 @@ export async function syncMovieData() {
                             new Date(usReleaseDateStr), // DB driver handles Date objects
                             new Date(internationalReleaseDateStr),
                             newPosterUrl,
+                            newTitle,
                             movie.TMDBId || movie.tmdbid
                         ]);
 
@@ -93,7 +98,7 @@ export async function syncMovieData() {
             }
             await new Promise(resolve => setTimeout(resolve, 300));
         }
-        console.log('Cron Job: Sync Finished.');
+        console.log('Cron Job: Movie Sync Finished.');
     } catch (err) {
         console.error('Critical Cron Failure:', err);
     }

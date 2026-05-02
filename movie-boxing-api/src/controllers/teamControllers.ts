@@ -37,7 +37,7 @@ export const assignMovie = async (req: Request, res: Response) => {
 
         const leagueId = league.LeagueId || league.leagueid;
         const startingNumber = league.StartingNumber || league.startingnumber;
-        const isStarting = SlotNumber <= startingNumber ? 1 : 0;
+        const IsStarting = SlotNumber <= startingNumber ? true : false;
 
         // 3. Start Transaction
         await client.query('BEGIN');
@@ -68,7 +68,7 @@ export const assignMovie = async (req: Request, res: Response) => {
         await client.query(insertQuery, [
             TeamId,
             internalMovieId,
-            isStarting,
+            IsStarting,
             SlotNumber,
             leagueId
         ]);
@@ -177,7 +177,7 @@ export const deleteTeam = async (req: Request, res: Response) => {
             DELETE FROM "Teams"
             WHERE "TeamId" = $1 AND "OwnerUserId" = $2
         `;
-        
+
         const result = await pool.query(query, [parseInt(teamId as string), userId]);
 
         if (result.rowCount && result.rowCount > 0) {
@@ -230,7 +230,7 @@ export const getUserTeamsAndPicks = async (req: Request, res: Response) => {
 
         rows.forEach(row => {
             const tId = row.TeamId || row.teamid;
-            
+
             if (!teamsMap.has(tId)) {
                 teamsMap.set(tId, {
                     TeamId: tId,
@@ -318,42 +318,56 @@ export const replaceMovie = async (req: Request, res: Response) => {
     const client = await pool.connect();
 
     try {
-        // 1. Resolve Movie using your Postgres-ready helper
+        // 1. Resolve Incoming Movie
         const movie = await getMovieData(TMDBId);
         const internalMovieId = movie.MovieId || movie.movieid;
 
-        // 2. Business Rule: Cannot sign a movie that has already released
         const today = new Date();
-        const releaseDate = new Date(movie.InternationalReleaseDate || movie.internationalreleasedate);
-        
-        if (releaseDate <= today) {
+        const incomingReleaseDate = new Date(movie.InternationalReleaseDate || movie.internationalreleasedate);
+
+        // Rule: Cannot sign a movie that has already released
+        if (incomingReleaseDate <= today) {
             return res.status(400).send("Cannot sign a movie that has already premiered.");
         }
 
-        // 3. Auth & League Context Check
+        // 2. Auth & League Context Check (Now fetching the occupant as well)
         const teamQuery = `
-            SELECT l."LeagueId", l."StartingNumber", t."OwnerUserId" 
+            SELECT 
+                l."LeagueId", l."StartingNumber", t."OwnerUserId",
+                m."Title" AS "OccupantTitle", 
+                m."InternationalReleaseDate" AS "OccupantReleaseDate"
             FROM "Teams" t 
             JOIN "Leagues" l ON t."LeagueId" = l."LeagueId" 
+            LEFT JOIN "TeamMovies" tm ON t."TeamId" = tm."TeamId" AND tm."OrderDrafted" = $2
+            LEFT JOIN "Movies" m ON tm."MovieId" = m."MovieId"
             WHERE t."TeamId" = $1
         `;
-        const teamRes = await client.query(teamQuery, [TeamId]);
+        const teamRes = await client.query(teamQuery, [TeamId, Slot]);
         const team = teamRes.rows[0];
 
         if (!team) return res.status(404).send("Team not found.");
-        
-        // Ensure the person logged in owns the team
+
         if ((team.OwnerUserId || team.owneruserid) !== userId) {
             return res.status(403).send("You do not have Front Office authority for this team.");
         }
 
         const leagueId = team.LeagueId || team.leagueid;
         const startingNumber = team.StartingNumber || team.startingnumber;
-        const isStarting = Slot <= startingNumber;
+        const IsStarting = Slot <= startingNumber;
+
+        // 3. Rule: Cannot replace a STARTING movie if it has already premiered
+        if (IsStarting && team.OccupantReleaseDate) {
+            const occupantRelease = new Date(team.OccupantReleaseDate);
+            if (occupantRelease <= today) {
+                return res.status(400).send(
+                    `Illegal Move: ${team.OccupantTitle} has already premiered and is locked in a starting slot.`
+                );
+            }
+        }
 
         await client.query('BEGIN');
 
-        // 4. Monthly Cooldown Check (Postgres syntax)
+        // 4. Monthly Cooldown Check
         const cooldownQuery = `
             SELECT 1 FROM "TeamMovies" 
             WHERE "TeamId" = $1 
@@ -375,18 +389,16 @@ export const replaceMovie = async (req: Request, res: Response) => {
         }
 
         // 6. Execute the Swap
-        // Remove old occupant
         await client.query(
-            'DELETE FROM "TeamMovies" WHERE "TeamId" = $1 AND "OrderDrafted" = $2', 
+            'DELETE FROM "TeamMovies" WHERE "TeamId" = $1 AND "OrderDrafted" = $2',
             [TeamId, Slot]
         );
 
-        // Add new movie
         const insertQuery = `
-            INSERT INTO "TeamMovies" ("TeamId", "MovieId", "DateAdded", "isStarting", "OrderDrafted", "LeagueId")
+            INSERT INTO "TeamMovies" ("TeamId", "MovieId", "DateAdded", "IsStarting", "OrderDrafted", "LeagueId")
             VALUES ($1, $2, NOW(), $3, $4, $5)
         `;
-        await client.query(insertQuery, [TeamId, internalMovieId, isStarting, Slot, leagueId]);
+        await client.query(insertQuery, [TeamId, internalMovieId, IsStarting, Slot, leagueId]);
 
         await client.query('COMMIT');
         return res.status(200).send("Transaction Complete! Movie swapped.");
@@ -407,7 +419,6 @@ export const replaceMovie = async (req: Request, res: Response) => {
 export const swapMovies = async (req: Request, res: Response) => {
     const { TeamId, Slot1, Slot2 } = req.body;
 
-    // 1. Basic Validation
     if (!TeamId || Slot1 === undefined || Slot2 === undefined) {
         return res.status(400).send("Missing TeamId, Slot1, or Slot2");
     }
@@ -415,89 +426,67 @@ export const swapMovies = async (req: Request, res: Response) => {
     const client = await pool.connect();
 
     try {
-        await client.query('BEGIN');
-
-        // 2. Fetch League Rules and specific Movie details
-        // We need the StartingNumber to know which slots (1-5, etc.) actually count for points
+        // 1. Get starting limit (and validate existence)
         const contextQuery = `
-            SELECT 
-                l."StartingNumber", 
-                tm."OrderDrafted", 
-                m."InternationalReleaseDate", 
-                m."Title"
+            SELECT l."StartingNumber", tm."OrderDrafted", m."InternationalReleaseDate", m."Title"
             FROM "Teams" t
             JOIN "Leagues" l ON t."LeagueId" = l."LeagueId"
             JOIN "TeamMovies" tm ON t."TeamId" = tm."TeamId"
             JOIN "Movies" m ON tm."MovieId" = m."MovieId"
-            WHERE t."TeamId" = $1::int 
-            AND (tm."OrderDrafted" = $2::int OR tm."OrderDrafted" = $3::int)
+            WHERE t."TeamId" = $1 AND (tm."OrderDrafted" = $2 OR tm."OrderDrafted" = $3)
         `;
-        
         const contextRes = await client.query(contextQuery, [TeamId, Slot1, Slot2]);
-        
+
         if (contextRes.rows.length < 2) {
-            await client.query('ROLLBACK');
-            return res.status(404).send("One or both movie slots not found on this team.");
+            return res.status(404).send("One or both slots are empty.");
         }
 
-        // Handle Postgres property case-insensitivity
         const startingLimit = contextRes.rows[0].StartingNumber || contextRes.rows[0].startingnumber;
+
+        // 2. Perform Release Date Check
         const today = new Date();
-
-        // 3. RELEASE CHECK: Prevents swapping a released movie from Bench -> Starter
         for (const movie of contextRes.rows) {
-            const currentSlot = movie.OrderDrafted || movie.orderdrafted;
-            const targetSlot = (currentSlot === Slot1) ? Slot2 : Slot1;
+            const current = movie.OrderDrafted || movie.orderdrafted;
+            const target = current === Slot1 ? Slot2 : Slot1;
 
-            const isCurrentlyBench = currentSlot > startingLimit;
-            const isTargetStarter = targetSlot <= startingLimit;
+            // Check if movie is crossing the "Start/Bench Line"
+            const isMovingToBench = current <= startingLimit && target > startingLimit;
+            const isMovingToStarter = current > startingLimit && target <= startingLimit;
 
-            if (isCurrentlyBench && isTargetStarter) {
-                const releaseDateRaw = movie.InternationalReleaseDate || movie.internationalreleasedate;
-                if (new Date(releaseDateRaw) <= today) {
-                    await client.query('ROLLBACK');
+            if (isMovingToBench || isMovingToStarter) {
+                const releaseDate = new Date(movie.InternationalReleaseDate || movie.internationalreleasedate);
+
+                if (releaseDate <= today) {
+                    const direction = isMovingToBench ? "be benched" : "be started";
                     return res.status(400).send(
-                        `Illegal Move: "${movie.Title || movie.title}" is already released and cannot move to a starter slot.`
+                        `Illegal Move: ${movie.Title} has already released and cannot ${direction}.`
                     );
                 }
             }
         }
 
-        // 4. PERFORM THE SWAP (Using explicit ::int casting to fix your error)
-        
-        // Step A: Move Slot1 to temporary placeholder (-1)
-        await client.query(`
-            UPDATE "TeamMovies" 
-            SET "OrderDrafted" = -1 
-            WHERE "TeamId" = $1::int AND "OrderDrafted" = $2::int`, 
-            [TeamId, Slot1]
-        );
-        
-        // Step B: Move Slot2 into Slot1's position
-        await client.query(`
-            UPDATE "TeamMovies" 
-            SET "OrderDrafted" = $1::int, 
-                "isStarting" = CASE WHEN $1::int <= $3::int THEN 1 ELSE 0 END 
-            WHERE "TeamId" = $4::int AND "OrderDrafted" = $2::int`, 
-            [Slot1, Slot2, startingLimit, TeamId]
-        );
+        // 3. THE SINGLE STATEMENT SWAP
+        const swapQuery = `
+            UPDATE "TeamMovies"
+            SET 
+                "OrderDrafted" = CASE 
+                    WHEN "OrderDrafted" = $1 THEN $2 
+                    ELSE $1 
+                END,
+                "IsStarting" = CASE 
+                    WHEN (CASE WHEN "OrderDrafted" = $1 THEN $2 ELSE $1 END) <= $3 THEN TRUE 
+                    ELSE FALSE 
+                END
+            WHERE "TeamId" = $4 AND "OrderDrafted" IN ($1, $2)
+        `;
 
-        // Step C: Move placeholder (-1) into Slot2's position
-        await client.query(`
-            UPDATE "TeamMovies" 
-            SET "OrderDrafted" = $1::int, 
-                "isStarting" = CASE WHEN $1::int <= $3::int THEN 1 ELSE 0 END 
-            WHERE "TeamId" = $4::int AND "OrderDrafted" = -1`, 
-            [Slot2, Slot1, startingLimit, TeamId]
-        );
+        await client.query(swapQuery, [Slot1, Slot2, startingLimit, TeamId]);
 
-        await client.query('COMMIT');
         return res.status(200).send("Swap successful");
 
     } catch (err) {
-        await client.query('ROLLBACK');
         console.error("Swap Error:", err);
-        return res.status(500).send("Database error during swap.");
+        return res.status(500).send("Database error.");
     } finally {
         client.release();
     }
@@ -527,8 +516,8 @@ export const updateTeam = async (req: Request, res: Response) => {
         `;
 
         const { rows } = await pool.query(query, [
-            TeamName, 
-            parseInt(teamId as string), 
+            TeamName,
+            parseInt(teamId as string),
             userId
         ]);
 

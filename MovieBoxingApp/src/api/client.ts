@@ -35,7 +35,7 @@ export const apiRequest = async <T = any>(
 
         if (refreshRes.ok) {
           const { accessToken } = await refreshRes.json();
-          
+
           // Save the new token
           await SecureStore.setItemAsync('accessToken', accessToken);
 
@@ -72,7 +72,14 @@ export const apiRequest = async <T = any>(
   // Handle empty responses (like 204 No Content for logouts)
   if (response.status === 204) return {} as T;
 
-  return response.json() as Promise<T>;
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.includes("application/json")) {
+    return response.json() as Promise<T>;
+  }
+
+  // Fallback for plain text responses
+  const text = await response.text();
+  return { message: text } as unknown as T;
 };
 
 // Helper to clean up on total failure

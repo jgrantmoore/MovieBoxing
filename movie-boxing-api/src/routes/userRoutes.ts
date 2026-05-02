@@ -5,7 +5,7 @@ import {
     getUserStats,
     updateUser
 } from '../controllers/userController.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -16,6 +16,6 @@ router.get('/', authenticateToken, getUser);
 // GET /api/user/stats?id=123
 router.get('/stats', authenticateToken, getUserStats);
 // PUT /api/user/update
-router.put('/update', authenticateToken, updateUser);
+router.put('/update', authenticateToken, requireAuth, updateUser);
 
 export default router;
