@@ -39,6 +39,10 @@ const formatCurrency = (rev: number) => {
     return `$${(rev / 1000000).toFixed(1)}M`;
 };
 
+const formatCommaCurrency = (rev: number) => {
+    return `$${rev.toLocaleString()}`;
+};
+
 export default function LeagueDetails() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
@@ -71,8 +75,7 @@ export default function LeagueDetails() {
     const scrollOffsets = useRef<{ [key: number]: number }>({});
 
     useEffect(() => {
-        // Trigger the popup if a winner exists and hasn't been dismissed
-        if (leagueInfo?.LeagueWinnerId) {
+        if (leagueInfo?.WinnerId) {
             setShowWinnerPopup(true);
         }
     }, [leagueInfo]);
@@ -90,7 +93,7 @@ export default function LeagueDetails() {
                 apiRequest<any[]>(`/leagues/release-order?id=${id}`),
                 apiRequest<any[]>(`/leagues/leaderboard?id=${id}`)
             ]);
-
+            console.log(info.WinnerId + " is the winner of league " + info.LeagueName); // Debug log
             setLeagueInfo(info);
             setTeams(info.Teams || []);
             setReleaseSchedule(schedule || []);
@@ -234,7 +237,7 @@ export default function LeagueDetails() {
                             <ArrowLeft size={20} color="white" />
                         </TouchableOpacity>
 
-                        <View className="flex-row justify-between items-start mb-8">
+                        <View className={`flex-row justify-between items-start ${leagueInfo.WinnerId ? 'mb-0' : 'mb-8'}`}>
                             <View className="flex-1">
                                 <View className="flex-row items-center mb-2">
                                     <View className={`px-2 py-1 rounded-md mr-3 ${leagueInfo.isPrivate ? 'bg-amber-600/20 border border-amber-600/50' : 'bg-green-600/20 border border-green-600/50'} border`}>
@@ -256,10 +259,17 @@ export default function LeagueDetails() {
                             )}
                         </View>
 
+                        {leagueInfo.WinnerId && (
+                            <View className="flex-row items-center mb-4">
+                                <Text className="text-white text-lg font-black uppercase italic">Winner: </Text>
+                                <Text className="text-red-600 text-lg font-black uppercase italic">{leagueInfo.WinnerName}</Text>
+                            </View>
+                        )}
+
                         <View className="flex-row flex-wrap bg-neutral-900/30 border border-neutral-800 rounded-3xl p-4 mb-8">
                             <RuleItem icon={<Trophy size={16} color="#dc2626" />} label="Starters" value={STARTING_SLOTS} />
                             <RuleItem icon={<Armchair size={16} color="#dc2626" />} label="Bench" value={BENCH_SLOTS} />
-                            <RuleItem icon={<Users size={16} color="#dc2626" />} label="Commish" value={leagueInfo.AdminName} />
+                            <RuleItem icon={<Users size={16} color="#dc2626" />} label="Admin" value={leagueInfo.AdminName} />
                             <RuleItem icon={<Calendar size={16} color="#dc2626" />} label="Ends" value={new Date(leagueInfo.EndDate).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
@@ -267,12 +277,6 @@ export default function LeagueDetails() {
                             })} />
                         </View>
 
-                        {leagueInfo.LeagueWinnerId && (
-                            <View className="flex-row items-center mt-2">
-                                <Text className="text-white font-black">Winner: </Text>
-                                <Text className="text-amber-400 font-black">{leagueInfo.LeagueWinnerName}</Text>
-                            </View>
-                        )}
 
                         <View className="flex-row bg-neutral-900 rounded-2xl p-1 mb-6">
                             <TabBtn active={activeTab === 'teams'} label="Teams" icon={<LayoutGrid size={16} color={activeTab === 'teams' ? 'white' : '#737373'} />} onPress={() => setActiveTab('teams')} />
@@ -462,6 +466,7 @@ export default function LeagueDetails() {
                 />
             )}
 
+            {/* Winner Popup */}
             <Modal
                 animationType="fade"
                 transparent={true}
@@ -480,22 +485,29 @@ export default function LeagueDetails() {
                             League Champion
                         </Text>
 
-                        <Text className="text-white text-4xl font-black italic uppercase tracking-tighter text-center mb-2">
-                            {leagueInfo?.LeagueWinnerName}
+                        <Text className="text-white text-4xl font-black italic uppercase tracking-tighter text-center mb-1">
+                            {leagueInfo?.WinnerName}
                         </Text>
 
-                        <Text className="text-neutral-600 text-[10px] font-bold mb-6">
-                            ID: {leagueInfo?.LeagueWinnerId}
+                        
+                        <Text className="text-neutral-500 text-xl uppercase tracking-widest mb-6 text-center italic">
+                            {formatCommaCurrency(teams.sort((a, b) => (b.Picks || []).reduce((sum, p) => sum + (p.BoxOffice || 0), 0) - (a.Picks || []).reduce((sum, p) => sum + (p.BoxOffice || 0), 0))[0].Picks?.reduce((sum, p) => sum + (p.BoxOffice || 0), 0) || 0)}
                         </Text>
 
                         <View className="h-[1px] w-full bg-neutral-800 mb-6" />
 
                         <TouchableOpacity
                             onPress={() => setShowWinnerPopup(false)}
-                            className="bg-red-600 py-4 px-10 rounded-2xl shadow-lg shadow-red-900/40"
+                            className="bg-red-600 py-4 px-10 rounded-2xl shadow-lg shadow-red-900/40 mb-6"
                         >
                             <Text className="text-white font-black uppercase italic tracking-tight">
-                                Respect the Champ
+                                View League Details
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity onPress={() => { router.push(`/profile/${leagueInfo?.WinnerId}`); setShowWinnerPopup(false) }} className="text-neutral-600 text-[10px] font-bold">
+                            <Text className="text-neutral-600 text-[10px] font-bold italic border-b border-neutral-600">
+                                Visit {leagueInfo?.WinnerName}'s Profile
                             </Text>
                         </TouchableOpacity>
                     </View>

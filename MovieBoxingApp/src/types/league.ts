@@ -56,8 +56,8 @@ export interface LeagueData {
     Teams: LeagueTeam[];
     Joined: boolean;
     isAdmin: boolean;
-    LeagueWinnerId: number,
-    LeagueWinnerName: string
+    WinnerId: number,
+    WinnerName: string
 }
 
 export interface LeagueRules {
