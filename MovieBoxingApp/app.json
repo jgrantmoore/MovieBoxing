@@ -6,7 +6,7 @@
     "backgroundColor": "#020617",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/Icon-iOS-Default-1024x1024@1x.png",
     "scheme": "movieboxingapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -38,7 +38,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/icon.png",
+          "image": "./assets/images/Icon-iOS-Default-1024x1024@1x.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#020618",

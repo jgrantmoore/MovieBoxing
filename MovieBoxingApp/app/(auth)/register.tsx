@@ -11,7 +11,7 @@ import {
     Image
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
-import { ChevronRight, AlertCircle } from 'lucide-react-native';
+import { ChevronRight, AlertCircle, Check } from 'lucide-react-native'; // Added Check icon
 import { apiRequest } from '@/src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
 
@@ -30,10 +30,10 @@ export default function Register() {
         confirmPassword: ''
     });
 
+    const [isOver13, setIsOver13] = useState(false); // New state for age check
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // --- Matches your Web State structure ---
     const [usernameStatus, setUsernameStatus] = useState<{
         loading: boolean;
         available: boolean | null;
@@ -44,7 +44,6 @@ export default function Register() {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    // --- DEBOUNCED USERNAME CHECK (Matches your Web Logic) ---
     useEffect(() => {
         const checkUsernameAvailability = async () => {
             const user = formData.username.trim();
@@ -56,12 +55,10 @@ export default function Register() {
             setUsernameStatus(prev => ({ ...prev, loading: true }));
 
             try {
-                // Using apiRequest helper - ensuring it sends a POST like your web code
                 const data = await apiRequest('/auth/check-username', {
                     method: 'POST',
                     body: JSON.stringify({ username: user })
                 });
-                console.log("Username check response:", data);
 
                 setUsernameStatus({
                     loading: false,
@@ -83,6 +80,12 @@ export default function Register() {
     const handleRegister = async () => {
         setError(null);
 
+        // Validation for age check
+        if (!isOver13) {
+            setError('You must be over 13 to join the arena');
+            return;
+        }
+
         if (usernameStatus.available === false) {
             setError(usernameStatus.message);
             return;
@@ -95,7 +98,6 @@ export default function Register() {
 
         setLoading(true);
         try {
-            // Updated to match your Web registration endpoint structure
             const response = await fetch('https://api.movieboxing.com/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -133,7 +135,6 @@ export default function Register() {
 
             <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }} keyboardShouldPersistTaps="handled">
                 
-                {/* Header Logo */}
                 <View className="mb-10 items-center">
                     <View className="flex-row items-center justify-center mb-4">
                         <Image source={BoxingGloveL} style={{ width: 35, height: 35 }} resizeMode="contain" />
@@ -146,7 +147,6 @@ export default function Register() {
                     <View className="h-1 w-12 bg-red-600 mt-2 self-center rounded-full" />
                 </View>
 
-                {/* Registration Card */}
                 <View className="bg-neutral-900/50 border-2 border-neutral-800 rounded-[2.5rem] p-6 shadow-2xl">
                     
                     <View className="flex-row gap-x-3 mb-4">
@@ -173,7 +173,6 @@ export default function Register() {
                                 value={formData.username}
                                 onChangeText={(v) => updateField('username', v)}
                             />
-                            {/* Availability Sub-text (Directly below field) */}
                             {formData.username.length >= 3 && (
                                 <Text className={`text-[10px] mt-1 font-bold italic uppercase tracking-tight ml-1 ${
                                     usernameStatus.available ? 'text-green-500' : 'text-red-600'
@@ -184,7 +183,6 @@ export default function Register() {
                         </View>
                     </View>
 
-                    {/* Email */}
                     <View className="mb-4">
                         <Text className="text-neutral-500 text-[9px] font-black uppercase mb-2 ml-1 tracking-widest">Email Address</Text>
                         <TextInput
@@ -198,8 +196,7 @@ export default function Register() {
                         />
                     </View>
 
-                    {/* Passwords */}
-                    <View className="flex-row gap-x-3 mb-6">
+                    <View className="flex-row gap-x-3 mb-4">
                         <View className="flex-1">
                             <Text className="text-neutral-500 text-[9px] font-black uppercase mb-2 ml-1 tracking-widest">Password</Text>
                             <TextInput
@@ -224,7 +221,20 @@ export default function Register() {
                         </View>
                     </View>
 
-                    {/* Error Box */}
+                    {/* --- Age Verification Selector --- */}
+                    <TouchableOpacity 
+                        onPress={() => setIsOver13(!isOver13)}
+                        activeOpacity={0.7}
+                        className="flex-row items-center mb-6 ml-1"
+                    >
+                        <View className={`w-5 h-5 rounded-md border-2 items-center justify-center ${isOver13 ? 'bg-red-600 border-red-600' : 'border-neutral-700 bg-black'}`}>
+                            {isOver13 && <Check color="white" size={14} strokeWidth={4} />}
+                        </View>
+                        <Text className="text-neutral-400 text-[10px] font-black uppercase ml-3 tracking-tight">
+                            I confirm I am <Text className="text-white">over 13 years of age</Text>
+                        </Text>
+                    </TouchableOpacity>
+
                     {error && (
                         <View className="bg-red-600/10 border border-red-600/30 p-4 rounded-2xl flex-row items-center mb-6">
                             <AlertCircle color="#dc2626" size={18} />
@@ -234,9 +244,9 @@ export default function Register() {
 
                     <TouchableOpacity
                         onPress={handleRegister}
-                        disabled={loading || usernameStatus.available === false}
+                        disabled={loading || usernameStatus.available === false || !isOver13}
                         activeOpacity={0.8}
-                        className={`bg-red-600 py-5 rounded-2xl flex-row items-center justify-center ${loading || usernameStatus.available === false ? 'opacity-50' : ''}`}
+                        className={`bg-red-600 py-5 rounded-2xl flex-row items-center justify-center ${loading || usernameStatus.available === false || !isOver13 ? 'opacity-50' : ''}`}
                     >
                         {loading ? <ActivityIndicator color="white" /> : (
                             <>
@@ -247,7 +257,6 @@ export default function Register() {
                     </TouchableOpacity>
                 </View>
 
-                {/* Footer Link */}
                 <View className="mt-8 items-center">
                     <TouchableOpacity onPress={() => router.push('/login')}>
                         <Text className="text-neutral-500 text-xs font-bold uppercase tracking-widest">
