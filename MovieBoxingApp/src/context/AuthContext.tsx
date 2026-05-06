@@ -27,6 +27,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         GoogleSignin.configure({
             webClientId: '1036192699896-i3buhij8mq2j8g06a9046t0pbvv3voe1.apps.googleusercontent.com',
             iosClientId: '1036192699896-3orvss0jdjti8occh5ktjnffev0fkm68.apps.googleusercontent.com',
+            offlineAccess: true, 
+            scopes: ['profile', 'email'], // Add this line
         });
 
         async function loadStorage() {
@@ -93,10 +95,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const { data } = await GoogleSignin.signIn();
             const idToken = data?.idToken;
 
+            console.log("Sending Token to backend:", idToken);
+
             if (!idToken) throw new Error("No ID Token received from Google");
 
             // Exchange the Google Token for our own JWTs
-            const response = await fetch('https://api.movieboxing.com/api/auth/google', {
+            const response = await fetch('https://api.movieboxing.com/api/auth/sync-google', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token: idToken })

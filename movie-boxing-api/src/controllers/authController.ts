@@ -3,6 +3,9 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { pool } from '../config/db.js';
+import { OAuth2Client } from 'google-auth-library';
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_WEB_CLIENT_ID);
 
 /**
  * Handle User Login (Accepts Username or Email)
@@ -151,14 +154,22 @@ export const register = async (req: Request, res: Response) => {
  * Logic: If user exists, log them in. If not, create a new record.
  */
 export const syncGoogleUser = async (req: Request, res: Response) => {
-    const { email, name } = req.body;
-
-    if (!email) {
-        return res.status(400).send("Email is required from Google provider.");
-    }
+    const { token } = req.body;
 
     try {
-        // 1. Check if the user already exists
+        // Verify the token with Google directly
+        const ticket = await googleClient.verifyIdToken({
+            idToken: token,
+            audience: process.env.GOOGLE_WEB_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+        
+        const email = payload?.email;
+        const name = payload?.name;
+
+        if (!email) {
+            return res.status(400).send("Email is required from Google provider.");
+        }
         const checkQuery = `SELECT "UserId", "DisplayName", "Username" FROM "Users" WHERE "Email" = $1`;
         const { rows } = await pool.query(checkQuery, [email.toLowerCase()]);
 
