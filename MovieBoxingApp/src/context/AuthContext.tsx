@@ -92,10 +92,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const loginWithGoogle = async () => {
         try {
             await GoogleSignin.hasPlayServices();
+            
+            // Destructure data from Google sign-in result
             const { data } = await GoogleSignin.signIn();
             const idToken = data?.idToken;
-
-            console.log("Sending Token to backend:", idToken);
 
             if (!idToken) throw new Error("No ID Token received from Google");
 
@@ -113,8 +113,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             const responseData = await response.json();
 
-            // data should contain { accessToken, refreshToken, user }
-            await login(responseData.accessToken, responseData.refreshToken, responseData.user);
+            /**
+             * Mapping to match your new Backend response:
+             * Your backend returns: { accessToken, refreshToken, userId, displayName, email, username }
+             */
+            const userPayload = {
+                userId: responseData.userId,
+                displayName: responseData.displayName,
+                username: responseData.username,
+                email: responseData.email
+            };
+
+            // Call your context's login function to save to SecureStore and update state
+            await login(
+                responseData.accessToken, 
+                responseData.refreshToken, 
+                userPayload
+            );
 
         } catch (error: any) {
             if (error.code === statusCodes.SIGN_IN_CANCELLED) {
@@ -123,7 +138,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 console.log("Sign in already in progress");
             } else {
                 console.error("Google Auth Error:", error);
-                throw error; // Re-throw to handle in the UI (e.g., show an Alert)
+                // Re-throw so the Login screen's catch block can catch it and show an Alert
+                throw error; 
             }
         }
     };
