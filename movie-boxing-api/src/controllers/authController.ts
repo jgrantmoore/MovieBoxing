@@ -4,52 +4,78 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { pool } from '../config/db.js';
 import { OAuth2Client } from 'google-auth-library';
+import { Resend } from 'resend';
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_WEB_CLIENT_ID);
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
- * Handle User Login (Accepts Username or Email)
+ * HELPER: Generate and Send Verification Code
+ */
+const sendVerificationCode = async (userId: number, email: string) => {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 Minutes
+
+    // 1. Store in DB
+    await pool.query(
+        `INSERT INTO "VerificationCodes" ("UserId", "Code", "ExpiresAt") VALUES ($1, $2, $3)`,
+        [userId, code, expiresAt]
+    );
+
+    // 2. Send via Resend
+    await resend.emails.send({
+        from: 'MovieBoxing <verify@noreply.movieboxing.com>', // Ensure this domain is verified in Resend
+        to: email,
+        subject: 'Verify your Ring Entrance',
+        html: `
+            <div style="font-family: sans-serif; background: #020617; color: white; padding: 40px; border-radius: 20px;">
+                <h1 style="color: #dc2626; font-style: italic; text-transform: uppercase;">Equipment Check!</h1>
+                <p>Welcome to the arena. Use the code below to verify your account:</p>
+                <div style="background: #000; padding: 20px; border: 1px solid #1f2937; border-radius: 10px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 10px; color: #dc2626;">
+                    ${code}
+                </div>
+                <p style="font-size: 12px; color: #64748b; margin-top: 20px;">This code expires in 15 minutes.</p>
+            </div>
+        `
+    });
+};
+
+/**
+ * Handle User Login
  */
 export const login = async (req: Request, res: Response) => {
     const { username, password } = req.body;
 
-    // 1. Basic Validation
     if (!username || !password) {
         return res.status(400).json({ message: "Username/Email and password are required." });
     }
 
     const identifier = username.trim().toLowerCase();
 
-    if (identifier.length < 3 || identifier.length > 50) {
-        return res.status(400).json({ message: "Username/Email must be between 3 and 50 characters." });
-    }
-
     try {
-        // 2. Postgres Query: Check both Email and Username
-        const query = `
-            SELECT * FROM "Users" 
-            WHERE "Email" = $1 OR "Username" = $1
-        `;
+        const query = `SELECT * FROM "Users" WHERE "Email" = $1 OR "Username" = $1`;
         const { rows } = await pool.query(query, [identifier]);
         const user = rows[0];
 
-        // 3. Validate user existence and password
-        // Always return a generic message for security
         if (!user || !(await bcrypt.compare(password, user.PasswordHash || user.passwordhash))) {
-            return res.status(401).json({ message: "Invalid credentials. Double-check your username/email." });
+            return res.status(401).json({ message: "Invalid credentials." });
         }
+
+        // Optional: Block login if not verified (Uncomment if you want to force verification)
+        // if (!user.IsVerified && !user.isverified) {
+        //     return res.status(403).json({ message: "Please verify your email before logging in.", userId: user.UserId });
+        // }
 
         const accessToken = jwt.sign(
             { userId: user.UserId, name: user.DisplayName },
             process.env.JWT_SECRET!,
-            { expiresIn: '15m' } // Short lived
+            { expiresIn: '15m' }
         );
 
         const refreshToken = crypto.randomBytes(40).toString('hex');
         const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 30); // 30 days
+        expiresAt.setDate(expiresAt.getDate() + 30);
 
-        // Insert into that table we just made!
         await pool.query(
             `INSERT INTO "RefreshTokens" ("UserId", "Token", "ExpiresAt") VALUES ($1, $2, $3)`,
             [user.UserId, refreshToken, expiresAt]
@@ -57,7 +83,7 @@ export const login = async (req: Request, res: Response) => {
 
         return res.status(200).json({
             accessToken,
-            refreshToken, // Send this back for the mobile app to store in SecureStore
+            refreshToken,
             userId: (user.UserId || user.userid).toString(),
             displayName: user.DisplayName || user.displayname,
             email: user.Email || user.email,
@@ -76,27 +102,14 @@ export const login = async (req: Request, res: Response) => {
 export const register = async (req: Request, res: Response) => {
     const { name, username, email, password } = req.body;
 
-    // 1. Basic Field Presence
     if (!email || !password || !name || !username) {
         return res.status(400).send("Must enter all fields to create account.");
     }
 
-    // 2. Sanitization & Validation
     const parsedUsername = username.trim().toLowerCase();
     const parsedEmail = email.trim().toLowerCase();
 
-    if (parsedUsername.length < 3 || parsedUsername.length > 50) {
-        return res.status(400).send("Username must be between 3 and 50 characters.");
-    }
-    if (!/^[a-zA-Z0-9_]+$/.test(parsedUsername)) {
-        return res.status(400).send("Username can only contain letters, numbers, and underscores.");
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parsedEmail)) {
-        return res.status(400).send("Invalid email format.");
-    }
-
     try {
-        // 3. Check for existing users (Email or Username)
         const checkQuery = `SELECT "UserId" FROM "Users" WHERE "Email" = $1 OR "Username" = $2`;
         const existingUser = await pool.query(checkQuery, [parsedEmail, parsedUsername]);
 
@@ -104,20 +117,20 @@ export const register = async (req: Request, res: Response) => {
             return res.status(409).send("Email or username already in use.");
         }
 
-        // 4. Hash Password
-        const saltRounds = 12;
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        const hashedPassword = await bcrypt.hash(password, 12);
 
-        // 5. Insert into Postgres
+        // Updated Insert: Includes IsVerified defaulting to FALSE
         const insertQuery = `
-            INSERT INTO "Users" ("Email", "PasswordHash", "DisplayName", "JoinDate", "Username") 
-            VALUES ($1, $2, $3, NOW(), $4)
+            INSERT INTO "Users" ("Email", "PasswordHash", "DisplayName", "JoinDate", "Username", "IsVerified") 
+            VALUES ($1, $2, $3, NOW(), $4, FALSE)
             RETURNING "UserId", "DisplayName", "Email", "Username"
         `;
         const result = await pool.query(insertQuery, [parsedEmail, hashedPassword, name, parsedUsername]);
         const newUser = result.rows[0];
 
-        // 6. Generate Tokens (Exact same logic as your login)
+        // NEW: Send Verification Email
+        await sendVerificationCode(newUser.UserId, newUser.Email);
+
         const accessToken = jwt.sign(
             { userId: newUser.UserId, name: newUser.DisplayName },
             process.env.JWT_SECRET!,
@@ -133,14 +146,14 @@ export const register = async (req: Request, res: Response) => {
             [newUser.UserId, refreshToken, expiresAt]
         );
 
-        // 7. Success Response with Data
         return res.status(201).json({
             accessToken,
             refreshToken,
             userId: newUser.UserId,
             displayName: newUser.DisplayName,
             username: newUser.Username,
-            email: newUser.Email
+            email: newUser.Email,
+            requiresVerification: true // Let the frontend know to redirect to /verify
         });
 
     } catch (err) {
@@ -150,85 +163,114 @@ export const register = async (req: Request, res: Response) => {
 };
 
 /**
- * Synchronize a user authenticated via Google.
- * Logic: If user exists, log them in. If not, create a new record.
- * Generates identical Access/Refresh token pair as standard login.
+ * Verify Code Endpoint
+ */
+export const verifyEmail = async (req: Request, res: Response) => {
+    const { userId, code } = req.body;
+
+    if (!userId || !code) {
+        return res.status(400).json({ message: "User ID and code are required." });
+    }
+
+    try {
+        const query = `
+            SELECT * FROM "VerificationCodes" 
+            WHERE "UserId" = $1 AND "Code" = $2 AND "Used" = FALSE AND "ExpiresAt" > NOW()
+            ORDER BY "ExpiresAt" DESC LIMIT 1
+        `;
+        const { rows } = await pool.query(query, [userId, code]);
+        const validCode = rows[0];
+
+        if (!validCode) {
+            return res.status(400).json({ message: "Invalid or expired code." });
+        }
+
+        // 1. Mark code as used
+        await pool.query('UPDATE "VerificationCodes" SET "Used" = TRUE WHERE "Id" = $1', [validCode.Id]);
+
+        // 2. Mark user as verified
+        await pool.query('UPDATE "Users" SET "IsVerified" = TRUE WHERE "UserId" = $1', [userId]);
+
+        return res.status(200).json({ message: "Account successfully verified!" });
+    } catch (err) {
+        console.error('Verification failed:', err);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+};
+
+/**
+ * Resend Verification Code
+ */
+export const resendCode = async (req: Request, res: Response) => {
+    const { userId } = req.body;
+
+    try {
+        const userQuery = `SELECT "Email", "IsVerified" FROM "Users" WHERE "UserId" = $1`;
+        const { rows } = await pool.query(userQuery, [userId]);
+        const user = rows[0];
+
+        if (!user) return res.status(404).json({ message: "User not found." });
+        if (user.IsVerified || user.isverified) return res.status(400).json({ message: "Account already verified." });
+
+        await sendVerificationCode(userId, user.Email);
+        return res.status(200).json({ message: "New code sent to your email." });
+    } catch (err) {
+        return res.status(500).json({ message: "Failed to resend code." });
+    }
+};
+
+/**
+ * Synchronize Google User (Usually skip verification for Google)
  */
 export const syncGoogleUser = async (req: Request, res: Response) => {
     const { token } = req.body;
 
     try {
-        // 1. Verify the token with Google
         const ticket = await googleClient.verifyIdToken({
             idToken: token,
             audience: process.env.GOOGLE_WEB_CLIENT_ID,
         });
         const payload = ticket.getPayload();
-        
         const email = payload?.email;
         const name = payload?.name;
 
-        if (!email) {
-            return res.status(400).json({ message: "Email is required from Google provider." });
-        }
+        if (!email) return res.status(400).json({ message: "Email required from Google." });
 
-        // 2. Check if the user already exists
         const checkQuery = `SELECT * FROM "Users" WHERE "Email" = $1`;
         const { rows } = await pool.query(checkQuery, [email.toLowerCase()]);
         
         let user;
-
         if (rows.length > 0) {
-            // User exists
             user = rows[0];
         } else {
-            // 3. User doesn't exist - Create them (Auto-registration)
             const placeholderUsername = email.split('@')[0] + '_google';
             const insertQuery = `
-                INSERT INTO "Users" ("Email", "DisplayName", "Username", "JoinDate", "PasswordHash") 
-                VALUES ($1, $2, $3, NOW(), NULL)
+                INSERT INTO "Users" ("Email", "DisplayName", "Username", "JoinDate", "PasswordHash", "IsVerified") 
+                VALUES ($1, $2, $3, NOW(), NULL, TRUE) 
                 RETURNING *;
-            `;
-            const insertRes = await pool.query(insertQuery, [
-                email.toLowerCase(),
-                name || 'Google User',
-                placeholderUsername
-            ]);
+            `; // Google users are auto-verified
+            const insertRes = await pool.query(insertQuery, [email.toLowerCase(), name || 'Google User', placeholderUsername]);
             user = insertRes.rows[0];
         }
 
         const userId = user.UserId || user.userid;
-
-        // 4. Generate identical token pair as standard login
-        const accessToken = jwt.sign(
-            { userId: userId, name: user.DisplayName || user.displayname },
-            process.env.JWT_SECRET!,
-            { expiresIn: '15m' } // Unified to 15m
-        );
-
+        const accessToken = jwt.sign({ userId, name: user.DisplayName }, process.env.JWT_SECRET!, { expiresIn: '15m' });
         const refreshToken = crypto.randomBytes(40).toString('hex');
         const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 30); // 30 days
+        expiresAt.setDate(expiresAt.getDate() + 30);
 
-        // 5. Insert into RefreshTokens table
-        await pool.query(
-            `INSERT INTO "RefreshTokens" ("UserId", "Token", "ExpiresAt") VALUES ($1, $2, $3)`,
-            [userId, refreshToken, expiresAt]
-        );
+        await pool.query(`INSERT INTO "RefreshTokens" ("UserId", "Token", "ExpiresAt") VALUES ($1, $2, $3)`, [userId, refreshToken, expiresAt]);
 
-        // 6. Return standard payload
         return res.status(200).json({
             accessToken,
             refreshToken,
             userId: userId.toString(),
-            displayName: user.DisplayName || user.displayname,
-            email: user.Email || user.email,
-            username: user.Username || user.username
+            displayName: user.DisplayName,
+            email: user.Email,
+            username: user.Username
         });
-
     } catch (err) {
-        console.error('Google Sync failed:', err);
-        return res.status(500).json({ message: "Internal Server Error during Google Sync" });
+        return res.status(500).json({ message: "Google Sync failed." });
     }
 };
 
