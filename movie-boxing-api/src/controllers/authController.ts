@@ -152,12 +152,13 @@ export const register = async (req: Request, res: Response) => {
 /**
  * Synchronize a user authenticated via Google.
  * Logic: If user exists, log them in. If not, create a new record.
+ * Generates identical Access/Refresh token pair as standard login.
  */
 export const syncGoogleUser = async (req: Request, res: Response) => {
     const { token } = req.body;
 
     try {
-        // Verify the token with Google directly
+        // 1. Verify the token with Google
         const ticket = await googleClient.verifyIdToken({
             idToken: token,
             audience: process.env.GOOGLE_WEB_CLIENT_ID,
@@ -168,65 +169,66 @@ export const syncGoogleUser = async (req: Request, res: Response) => {
         const name = payload?.name;
 
         if (!email) {
-            return res.status(400).send("Email is required from Google provider.");
+            return res.status(400).json({ message: "Email is required from Google provider." });
         }
-        const checkQuery = `SELECT "UserId", "DisplayName", "Username" FROM "Users" WHERE "Email" = $1`;
+
+        // 2. Check if the user already exists
+        const checkQuery = `SELECT * FROM "Users" WHERE "Email" = $1`;
         const { rows } = await pool.query(checkQuery, [email.toLowerCase()]);
+        
+        let user;
 
         if (rows.length > 0) {
-            const existingUser = rows[0];
-            const userId = existingUser.UserId || existingUser.userid;
-
-            // Generate Token for existing user
-            const token = jwt.sign(
-                { userId, email },
-                process.env.JWT_SECRET!,
-                { expiresIn: '24h' } // Increased to match your standard login
-            );
-
-            return res.status(200).json({
-                token,
-                userId: userId.toString(),
-                username: existingUser.Username || existingUser.username || email.split('@')[0],
-                displayName: existingUser.DisplayName || existingUser.displayname,
-                isNewUser: false
-            });
+            // User exists
+            user = rows[0];
+        } else {
+            // 3. User doesn't exist - Create them (Auto-registration)
+            const placeholderUsername = email.split('@')[0] + '_google';
+            const insertQuery = `
+                INSERT INTO "Users" ("Email", "DisplayName", "Username", "JoinDate", "PasswordHash") 
+                VALUES ($1, $2, $3, NOW(), NULL)
+                RETURNING *;
+            `;
+            const insertRes = await pool.query(insertQuery, [
+                email.toLowerCase(),
+                name || 'Google User',
+                placeholderUsername
+            ]);
+            user = insertRes.rows[0];
         }
 
-        // 2. User doesn't exist - Create them
-        const placeholderUsername = email.split('@')[0] + '_google';
+        const userId = user.UserId || user.userid;
 
-        const insertQuery = `
-            INSERT INTO "Users" ("Email", "DisplayName", "Username", "JoinDate", "PasswordHash") 
-            VALUES ($1, $2, $3, NOW(), NULL)
-            RETURNING "UserId";
-        `;
-
-        const insertRes = await pool.query(insertQuery, [
-            email.toLowerCase(),
-            name || 'Google User',
-            placeholderUsername
-        ]);
-
-        const newUserId = insertRes.rows[0].UserId || insertRes.rows[0].userid;
-
-        const newToken = jwt.sign(
-            { userId: newUserId, email },
+        // 4. Generate identical token pair as standard login
+        const accessToken = jwt.sign(
+            { userId: userId, name: user.DisplayName || user.displayname },
             process.env.JWT_SECRET!,
-            { expiresIn: '24h' }
+            { expiresIn: '15m' } // Unified to 15m
         );
 
-        return res.status(201).json({
-            token: newToken,
-            userId: newUserId.toString(),
-            username: placeholderUsername,
-            displayName: name,
-            isNewUser: true
+        const refreshToken = crypto.randomBytes(40).toString('hex');
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 30); // 30 days
+
+        // 5. Insert into RefreshTokens table
+        await pool.query(
+            `INSERT INTO "RefreshTokens" ("UserId", "Token", "ExpiresAt") VALUES ($1, $2, $3)`,
+            [userId, refreshToken, expiresAt]
+        );
+
+        // 6. Return standard payload
+        return res.status(200).json({
+            accessToken,
+            refreshToken,
+            userId: userId.toString(),
+            displayName: user.DisplayName || user.displayname,
+            email: user.Email || user.email,
+            username: user.Username || user.username
         });
 
     } catch (err) {
         console.error('Google Sync failed:', err);
-        return res.status(500).send("Internal Server Error during Google Sync");
+        return res.status(500).json({ message: "Internal Server Error during Google Sync" });
     }
 };
 
