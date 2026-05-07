@@ -41,6 +41,82 @@ const sendVerificationCode = async (userId: number, email: string) => {
 };
 
 /**
+ *  HELPER: generates the HTML for the verification email
+ */
+const generateEmailHtml = (code: string) => {
+    return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>MovieBoxing Verification</title>
+        </head>
+        <body style="margin: 0; padding: 0; background-color: #020617; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="table-layout: fixed;">
+                <tr>
+                    <td align="center" style="padding: 40px 0 40px 0;">
+                        <table border="0" cellpadding="0" cellspacing="0" width="400" style="background-color: #0a0a0a; border: 1px solid #1f2937; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+                            
+                            <tr>
+                                <td align="center" style="padding: 40px 40px 20px 40px;">
+                                    <h2 style="margin: 0; color: #ffffff; font-style: italic; font-size: 12px; font-weight: 900; letter-spacing: -0.025em; text-transform: uppercase; color: #fff;">
+                                        MOVIE<span style="color: #dc2626;">BOXING</span>
+                                    </h2>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td align="center" style="padding: 0 40px 40px 40px;">
+                                    <h1 style="margin: 0; color: #ffffff; font-size: 32px; font-weight: 900; font-style: italic; text-transform: uppercase; letter-spacing: -1px;">
+                                        SIGNING DAY
+                                    </h1>
+                                    <p style="margin: 20px 0 30px 0; color: #94a3b8; font-size: 14px; line-height: 24px;">
+                                        Welcome to MovieBoxing! To step into the arena and start climbing the ranks, please verify your account with the code below:
+                                    </p>
+                                    
+                                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                        <tr>
+                                            <td align="center" style="background-color: #000000; border: 1px dashed #dc2626; border-radius: 16px; padding: 25px;">
+                                                <span style="color: #dc2626; font-size: 42px; font-weight: 900; letter-spacing: 12px; font-family: monospace;">
+                                                    ${code}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <p style="margin: 30px 0 0 0; color: #475569; font-size: 11px; font-weight: bold; text-transform: uppercase;">
+                                        Code expires in 15 minutes
+                                    </p>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td align="center" style="padding: 20px 40px; background-color: #0f172a;">
+                                    <p style="margin: 0; color: #64748b; font-size: 10px; line-height: 18px;">
+                                        If you didn't request this, you can safely ignore this email.<br>
+                                        © 2026 MovieBoxing. All rights reserved.
+                                    </p>
+                        <div style="display: flex; flex-direction: row; justify-content: center; align-items: center; gap: 1em;">
+                            <a target="_blank" style="margin: 0; color: #64748b; font-size: 10px; line-height: 18px;" href="https://movieboxing.com/privacy">
+                            Privacy Policy
+                            </a>
+                        <a target="_blank" style="margin: 0; color: #64748b; font-size: 10px; line-height: 18px;" href="https://movieboxing.com/privacy">
+                            Contact Us
+                            </a>
+                        </div>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>
+    `;
+};
+
+/**
  * Handle User Login
  */
 export const login = async (req: Request, res: Response) => {
