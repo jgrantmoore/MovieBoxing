@@ -126,7 +126,7 @@ export const getUserStats = async (req: Request, res: Response) => {
                  JOIN "Teams" t1 ON tp."ProposingTeamId" = t1."TeamId"
                  JOIN "Teams" t2 ON tp."TargetTeamId" = t2."TeamId"
                  WHERE (t1."OwnerUserId" = u."UserId" OR t2."OwnerUserId" = u."UserId")
-                 AND tp."Accepted" = true) AS "TotalTrades",
+                 AND tp."Status" = 'Accepted') AS "TotalTrades",
                 
                 COALESCE((
                     SELECT SUM(m."BoxOffice") 
