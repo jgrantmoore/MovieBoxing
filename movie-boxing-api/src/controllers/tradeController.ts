@@ -241,12 +241,15 @@ export const getTradeHistory = async (req: Request, res: Response) => {
             JOIN "Teams" tt ON t."TargetTeamId" = tt."TeamId"
             JOIN "Movies" m1 ON t."OfferedMovieId" = m1."MovieId"
             JOIN "Movies" m2 ON t."RequestedMovieId" = m2."MovieId"
-            WHERE tp."LeagueId" = $1 AND t."Pending" = FALSE
+            WHERE tp."LeagueId" = $1 
+              AND t."Status" != 'Pending'
+              AND t."Status" != 'Rescinded'
             ORDER BY t."ProcessedAt" DESC;
         `;
         const { rows } = await pool.query(query, [id]);
         return res.json(rows);
     } catch (error) {
+        console.error(error);
         return res.status(500).send("Internal server error.");
     }
 };
