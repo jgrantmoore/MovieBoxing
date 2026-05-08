@@ -13,7 +13,6 @@ export const createTrade = async (req: Request, res: Response) => {
     }
 
     try {
-        // Fetch verification details (League and Ownership)
         const verificationQuery = `
             SELECT tm."TeamId", tm."MovieId", t."LeagueId", l."StartDate", l."EndDate"
             FROM "TeamMovies" tm
@@ -29,18 +28,15 @@ export const createTrade = async (req: Request, res: Response) => {
 
         const [rowA, rowB] = vResult.rows;
 
-        // 1. Same League Check
         if (rowA.LeagueId !== rowB.LeagueId) {
             return res.status(400).send("Teams must be in the same league.");
         }
 
-        // 2. League Active Check
         const now = new Date();
         if (now < rowA.StartDate || now > rowA.EndDate) {
             return res.status(403).send("Trades are only allowed while the league is active.");
         }
 
-        // 3. Ownership Verification
         const proposerOwnsOffered = vResult.rows.find(r => r.TeamId === ProposingTeamId && r.MovieId === OfferedMovieId);
         const targetOwnsRequested = vResult.rows.find(r => r.TeamId === TargetTeamId && r.MovieId === RequestedMovieId);
 
@@ -48,9 +44,10 @@ export const createTrade = async (req: Request, res: Response) => {
             return res.status(403).send("One of the teams no longer owns the movie involved.");
         }
 
+        // Updated INSERT to use the 'Status' ENUM
         const insertQuery = `
-            INSERT INTO "TradeProposals" ("ProposingTeamId", "TargetTeamId", "OfferedMovieId", "RequestedMovieId", "Incentive", "CreatedAt", "Pending", "Accepted")
-            VALUES ($1, $2, $3, $4, $5, NOW(), TRUE, FALSE)
+            INSERT INTO "TradeProposals" ("ProposingTeamId", "TargetTeamId", "OfferedMovieId", "RequestedMovieId", "Incentive", "CreatedAt", "Status")
+            VALUES ($1, $2, $3, $4, $5, NOW(), 'Pending')
             RETURNING *;
         `;
 
@@ -65,7 +62,6 @@ export const createTrade = async (req: Request, res: Response) => {
 
 /**
  * Accept Trade Proposal
- * POST /api/trades/accept
  */
 export const acceptTrade = async (req: Request, res: Response) => {
     const ownerUserId = req.user!.userId;
@@ -79,13 +75,11 @@ export const acceptTrade = async (req: Request, res: Response) => {
         await client.query('BEGIN');
 
         const tradeQuery = `
-            SELECT t.*, 
-                   l."StartDate", l."EndDate",
-                   team."OwnerUserId" as "TargetOwnerId"
+            SELECT t.*, l."StartDate", l."EndDate", team."OwnerUserId" as "TargetOwnerId"
             FROM "TradeProposals" t
             JOIN "Teams" team ON t."TargetTeamId" = team."TeamId"
             JOIN "Leagues" l ON team."LeagueId" = l."LeagueId"
-            WHERE t."TradeId" = $1 AND t."Pending" = TRUE;
+            WHERE t."TradeId" = $1 AND t."Status" = 'Pending';
         `;
         const tradeRes = await client.query(tradeQuery, [TradeId]);
 
@@ -108,28 +102,21 @@ export const acceptTrade = async (req: Request, res: Response) => {
         }
 
         // ATOMIC SWAP
-        await client.query(
-            `UPDATE "TeamMovies" SET "MovieId" = $1 WHERE "TeamId" = $2 AND "MovieId" = $3`,
-            [trade.RequestedMovieId, trade.ProposingTeamId, trade.OfferedMovieId]
-        );
+        await client.query(`UPDATE "TeamMovies" SET "MovieId" = $1 WHERE "TeamId" = $2 AND "MovieId" = $3`, [trade.RequestedMovieId, trade.ProposingTeamId, trade.OfferedMovieId]);
+        await client.query(`UPDATE "TeamMovies" SET "MovieId" = $1 WHERE "TeamId" = $2 AND "MovieId" = $3`, [trade.OfferedMovieId, trade.TargetTeamId, trade.RequestedMovieId]);
 
+        // Updated UPDATE to 'Accepted'
         await client.query(
-            `UPDATE "TeamMovies" SET "MovieId" = $1 WHERE "TeamId" = $2 AND "MovieId" = $3`,
-            [trade.OfferedMovieId, trade.TargetTeamId, trade.RequestedMovieId]
-        );
-
-        // Update trade status
-        await client.query(
-            `UPDATE "TradeProposals" SET "Pending" = FALSE, "Accepted" = TRUE, "ProcessedAt" = NOW() WHERE "TradeId" = $1`,
+            `UPDATE "TradeProposals" SET "Status" = 'Accepted', "ProcessedAt" = NOW() WHERE "TradeId" = $1`,
             [TradeId]
         );
 
-        // Auto-cancel conflicting trades
+        // Auto-cancel conflicting trades as 'Declined'
         await client.query(
             `UPDATE "TradeProposals" 
-             SET "Pending" = FALSE, "ProcessedAt" = NOW()
+             SET "Status" = 'Declined', "ProcessedAt" = NOW()
              WHERE "TradeId" != $1 
-             AND "Pending" = TRUE 
+             AND "Status" = 'Pending' 
              AND ("OfferedMovieId" IN ($2, $3) OR "RequestedMovieId" IN ($2, $3))`,
             [TradeId, trade.OfferedMovieId, trade.RequestedMovieId]
         );
@@ -146,8 +133,7 @@ export const acceptTrade = async (req: Request, res: Response) => {
 };
 
 /**
- * Deny (or Withdraw) Trade Proposal
- * POST /api/trades/deny
+ * Deny (Target) or Rescind (Proposer) Trade Proposal
  */
 export const denyTrade = async (req: Request, res: Response) => {
     const ownerUserId = req.user!.userId;
@@ -163,7 +149,7 @@ export const denyTrade = async (req: Request, res: Response) => {
             FROM "TradeProposals" t
             JOIN "Teams" tp ON t."ProposingTeamId" = tp."TeamId"
             JOIN "Teams" tt ON t."TargetTeamId" = tt."TeamId"
-            WHERE t."TradeId" = $1 AND t."Pending" = TRUE;
+            WHERE t."TradeId" = $1 AND t."Status" = 'Pending';
         `;
         const tradeRes = await pool.query(findQuery, [TradeId]);
 
@@ -179,9 +165,12 @@ export const denyTrade = async (req: Request, res: Response) => {
             return res.status(403).send("You are not authorized to modify this trade.");
         }
 
+        // Logic to differentiate Status
+        const newStatus = isProposer ? 'Rescinded' : 'Declined';
+
         await pool.query(
-            `UPDATE "TradeProposals" SET "Pending" = FALSE, "Accepted" = FALSE, "ProcessedAt" = NOW() WHERE "TradeId" = $1`,
-            [TradeId]
+            `UPDATE "TradeProposals" SET "Status" = $1, "ProcessedAt" = NOW() WHERE "TradeId" = $2`,
+            [newStatus, TradeId]
         );
 
         return res.status(200).json({ message: isTarget ? "Trade denied." : "Trade withdrawn." });
@@ -193,7 +182,6 @@ export const denyTrade = async (req: Request, res: Response) => {
 
 /**
  * Get Pending Trades for User
- * GET /api/trades/pending
  */
 export const getPendingTrades = async (req: Request, res: Response) => {
     const userId = req.user!.userId;
@@ -212,7 +200,7 @@ export const getPendingTrades = async (req: Request, res: Response) => {
             JOIN "Movies" m1 ON t."OfferedMovieId" = m1."MovieId"
             JOIN "Movies" m2 ON t."RequestedMovieId" = m2."MovieId"
             JOIN "Leagues" l ON tp."LeagueId" = l."LeagueId"
-            WHERE t."Pending" = TRUE 
+            WHERE t."Status" = 'Pending' 
             AND (tp."OwnerUserId" = $1 OR tt."OwnerUserId" = $1);
         `;
         const { rows } = await pool.query(query, [userId]);
@@ -224,7 +212,6 @@ export const getPendingTrades = async (req: Request, res: Response) => {
 
 /**
  * Get Trade History for a League
- * GET /api/trades/history
  */
 export const getTradeHistory = async (req: Request, res: Response) => {
     const { id } = req.query;
@@ -243,7 +230,6 @@ export const getTradeHistory = async (req: Request, res: Response) => {
             JOIN "Movies" m2 ON t."RequestedMovieId" = m2."MovieId"
             WHERE tp."LeagueId" = $1 
               AND t."Status" != 'Pending'
-              AND t."Status" != 'Rescinded'
             ORDER BY t."ProcessedAt" DESC;
         `;
         const { rows } = await pool.query(query, [id]);
