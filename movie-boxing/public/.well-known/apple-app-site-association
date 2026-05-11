@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "Z69ML3B3XS.com.grantmoore.movieboxing",
+        "paths": ["/leagues/*"]
+      }
+    ]
+  },
+  "activitycontinuation": {
+    "apps": ["Z69ML3B3XS.com.grantmoore.movieboxing"]
+  },
+  "webcredentials": {
+    "apps": ["Z69ML3B3XS.com.grantmoore.movieboxing"]
+  }
+}
