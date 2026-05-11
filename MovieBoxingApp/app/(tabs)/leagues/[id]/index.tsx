@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image,
-    FlatList, RefreshControl, Modal
+    FlatList, RefreshControl, Modal, Share
 } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter, router } from 'expo-router';
 import Animated, {
@@ -22,7 +22,8 @@ import {
     Trash2,
     Calendar,
     ChevronDown,
-    ArrowRightLeft
+    ArrowRightLeft,
+    Share as ShareIcon
 } from 'lucide-react-native';
 import { apiRequest } from '../../../../src/api/client';
 import { MovieCard } from '../../../../src/components/MovieCard';
@@ -206,6 +207,26 @@ export default function LeagueDetails() {
         }
     };
 
+    const onShare = async () => {
+        try {
+            const result = await Share.share({
+                message:
+                    'https://movieboxing.com/leagues/' + id,
+            });
+            if (result.action === Share.sharedAction) {
+                if (result.activityType) {
+                    // shared with activity type of result.activityType
+                } else {
+                    // shared
+                }
+            } else if (result.action === Share.dismissedAction) {
+                // dismissed
+            }
+        } catch (error: any) {
+            Alert.alert(error.message);
+        }
+    };
+
     if (loading || !leagueInfo) {
         return (
             <View className="flex-1 bg-slate-950 items-center justify-center">
@@ -252,11 +273,17 @@ export default function LeagueDetails() {
                                     </TouchableOpacity>
                                 )}
                             </View>
-                            {leagueInfo.isAdmin && (
-                                <TouchableOpacity onPress={() => setIsSettingsModalOpen(true)} className="bg-neutral-800 p-3 rounded-xl border border-neutral-700">
-                                    <Settings size={20} color="white" />
+                            <View className="flex-col gap-3">
+                                <TouchableOpacity onPress={onShare} className="bg-neutral-800 p-3 rounded-xl border border-neutral-700">
+                                    <ShareIcon size={20} color="white" />
                                 </TouchableOpacity>
-                            )}
+                                {leagueInfo.isAdmin && (
+                                    <TouchableOpacity onPress={() => setIsSettingsModalOpen(true)} className="bg-neutral-800 p-3 rounded-xl border border-neutral-700">
+                                        <Settings size={20} color="white" />
+                                    </TouchableOpacity>
+
+                                )}
+                            </View>
                         </View>
 
                         {leagueInfo.WinnerId && (
@@ -489,7 +516,7 @@ export default function LeagueDetails() {
                             {leagueInfo?.WinnerName}
                         </Text>
 
-                        
+
                         <Text className="text-neutral-500 text-xl uppercase tracking-widest mb-6 text-center italic">
                             {formatCommaCurrency(teams.sort((a, b) => (b.Picks || []).reduce((sum, p) => sum + (p.BoxOffice || 0), 0) - (a.Picks || []).reduce((sum, p) => sum + (p.BoxOffice || 0), 0))[0].Picks?.reduce((sum, p) => sum + (p.BoxOffice || 0), 0) || 0)}
                         </Text>
