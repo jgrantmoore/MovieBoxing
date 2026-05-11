@@ -4,7 +4,10 @@
     "details": [
       {
         "appID": "Z69ML3B3XS.com.grantmoore.movieboxing",
-        "paths": ["/leagues/*"]
+        "paths": [
+            "/leagues/*",
+            "/profile/*"
+        ]
       }
     ]
   },
