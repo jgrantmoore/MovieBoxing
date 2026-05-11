@@ -54,6 +54,7 @@ export default function LeagueDetails() {
     const [teams, setTeams] = useState<LeagueTeam[]>([]);
     const [releaseSchedule, setReleaseSchedule] = useState<any[]>([]);
     const [leaderboard, setLeaderboard] = useState<any[]>([]);
+    const [tradeHistory, setTradeHistory] = useState<any[]>([]);
 
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -89,16 +90,18 @@ export default function LeagueDetails() {
         if (showIndicator) setLoading(true);
         try {
             // Promise.all ensures we fetch everything in parallel
-            const [info, schedule, rankings] = await Promise.all([
+            const [info, schedule, rankings, trades] = await Promise.all([
                 apiRequest<LeagueData>(`/leagues?id=${id}`),
                 apiRequest<any[]>(`/leagues/release-order?id=${id}`),
-                apiRequest<any[]>(`/leagues/leaderboard?id=${id}`)
+                apiRequest<any[]>(`/leagues/leaderboard?id=${id}`),
+                apiRequest<any[]>(`/trades/history?id=${id}`)
             ]);
             console.log(info.WinnerId + " is the winner of league " + info.LeagueName); // Debug log
             setLeagueInfo(info);
             setTeams(info.Teams || []);
             setReleaseSchedule(schedule || []);
             setLeaderboard(rankings || []);
+            setTradeHistory(trades || []);
         } catch (err) {
             console.error("Critical Data Fetch Error:", err);
             Alert.alert("Technical Foul", "Could not load all league data.");
@@ -314,7 +317,7 @@ export default function LeagueDetails() {
 
                         {activeTab === 'release' && <ReleaseOrderView releaseSchedule={releaseSchedule} leagueInfo={leagueInfo} parentRef={parentFlatListRef} />}
                         {activeTab === 'leaderboard' && <LeaderboardView leaderboard={leaderboard} />}
-                        {activeTab === 'trades' && <Text className="text-white font-black italic text-center py-20">Trade feature coming soon...</Text>}
+                        {activeTab === 'trades' && <TradesHistoryView history={tradeHistory} />}
                         {activeTab === 'teams' && leagueInfo.IsDrafting && (
                             <TouchableOpacity onPress={() => router.push(`/leagues/${id}/draft`)} className="bg-red-600 rounded-2xl py-5 flex-row items-center justify-center shadow-lg border-b-4 border-red-800 mb-4">
                                 <Trophy size={20} stroke="white" className="mr-3 animate-pulse" />
@@ -642,6 +645,76 @@ const LeaderboardView = ({ leaderboard }: { leaderboard: any[] }) => {
                                 <Text className={`text-[8px] font-bold uppercase tracking-tighter ${isFirst ? 'text-white/50' : 'text-neutral-600'}`}>Total Gross</Text>
                             </View>
                         </TouchableOpacity>
+                    </View>
+                );
+            })}
+        </View>
+    );
+};
+
+const TradesHistoryView = ({ history }: { history: any[] }) => {
+    if (history.length === 0) {
+        return (
+            <View className="py-20 items-center">
+                <ArrowRightLeft size={48} color="#262626" />
+                <Text className="text-neutral-500 font-black italic uppercase mt-4">No closed deals in this arena</Text>
+            </View>
+        );
+    }
+
+    return (
+        <View>
+            {history.map((trade) => {
+                const getStatusDetails = (status: string) => {
+                    switch (status) {
+                        case "Accepted":
+                            return { label: "Deal Closed", color: "text-green-500", bg: "bg-green-600/20 border-green-600/50" };
+                        case "Declined":
+                            return { label: "Trade Refused", color: "text-red-500", bg: "bg-red-600/20 border-red-600/50" };
+                        case "Rescinded":
+                            return { label: "Offer Rescinded", color: "text-amber-500", bg: "bg-amber-600/20 border-amber-600/50" };
+                        default:
+                            return { label: "Unknown", color: "text-neutral-500", bg: "bg-neutral-800" };
+                    }
+                };
+
+                const status = getStatusDetails(trade.Status);
+                return (
+                    <View
+                        key={trade.ProposalId}
+                        className="bg-neutral-900/40 border border-neutral-800 rounded-[2rem] p-6 mb-4"
+                    >
+                        {/* Status Badge */}
+                        <View className="flex-row justify-between items-center mb-4">
+                            <View className={`px-3 py-1 rounded-full border ${status.bg}`}>
+                                <Text className={`text-[10px] font-black uppercase italic ${status.color}`}>
+                                    {status.label}
+                                </Text>
+                            </View>
+                            <Text className="text-neutral-600 font-mono text-[10px]">
+                                {new Date(trade.ProcessedAt).toLocaleDateString()}
+                            </Text>
+                        </View>
+
+                        {/* Trade Content */}
+                        <View className="flex-row items-center justify-between">
+                            <View className="flex-1">
+                                <Text className="text-neutral-500 text-[8px] font-black uppercase tracking-widest mb-1">{trade.ProposingTeamName}</Text>
+                                <Text className="text-white font-black italic uppercase text-sm" numberOfLines={1}>{trade.OfferedMovieTitle}</Text>
+                                {trade.Incentive > 0 && (
+                                    <Text className="text-green-500 font-mono text-[10px] mt-1">+${trade.Incentive.toLocaleString()}</Text>
+                                )}
+                            </View>
+
+                            <View className="mx-4">
+                                <ArrowRightLeft size={16} color="#dc2626" />
+                            </View>
+
+                            <View className="flex-1 items-end">
+                                <Text className="text-neutral-500 text-[8px] font-black uppercase tracking-widest mb-1">{trade.TargetTeamName}</Text>
+                                <Text className="text-white font-black italic uppercase text-sm" numberOfLines={1}>{trade.RequestedMovieTitle}</Text>
+                            </View>
+                        </View>
                     </View>
                 );
             })}

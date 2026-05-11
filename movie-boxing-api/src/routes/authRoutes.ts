@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { login, register, syncGoogleUser, checkUsername, logout, refresh } from '../controllers/authController.js';
+import { login, register, syncGoogleUser, checkUsername, logout, refresh, verifyEmail } from '../controllers/authController.js';
 import { ref } from 'process';
+
 
 const router = Router();
 
@@ -19,5 +20,7 @@ router.post('/check-username', checkUsername);
 router.post('/logout', logout);
 // POST /api/auth/refresh
 router.post('/refresh', refresh);
+// POST /api/auth/verify-email
+router.post('/verify-email', verifyEmail);
 
 export default router;
