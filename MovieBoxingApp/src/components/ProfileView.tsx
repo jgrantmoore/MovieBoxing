@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
-import { Trophy, Film, Scale, Zap, UserPlus, ChevronRight, Settings } from 'lucide-react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, Share } from 'react-native';
+import { Trophy, Film, Scale, Zap, UserPlus, ChevronRight, Settings, Share as ShareIcon } from 'lucide-react-native';
 import { apiRequest } from '../api/client';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
@@ -70,6 +70,26 @@ export default function ProfileView({ userId }: { userId: string | number }) {
         setRefreshing(false);
     };
 
+    const onShare = async () => {
+        try {
+            const result = await Share.share({
+                message:
+                    'https://movieboxing.com/profile/' + userId,
+            });
+            if (result.action === Share.sharedAction) {
+                if (result.activityType) {
+                    // shared with activity type of result.activityType
+                } else {
+                    // shared
+                }
+            } else if (result.action === Share.dismissedAction) {
+                // dismissed
+            }
+        } catch (error: any) {
+            Alert.alert(error.message);
+        }
+    };
+
     if (loading) {
         return (
             <View className="flex-1 bg-slate-950 items-center justify-center">
@@ -102,15 +122,20 @@ export default function ProfileView({ userId }: { userId: string | number }) {
                             </Text>
                         </View>
 
-                        {/* Settings Button - Only for current user */}
-                        {isOwnProfile && (
-                            <TouchableOpacity
-                                onPress={() => router.push('/profile/settings')}
-                                className="bg-neutral-900 p-3 rounded-2xl border border-neutral-800"
-                            >
-                                <Settings size={20} color="white" />
+                        <View className="flex-col items-center gap-3">
+                            <TouchableOpacity onPress={onShare} className="bg-neutral-900 p-3 rounded-2xl border border-neutral-800">
+                                <ShareIcon size={20} color="white" />
                             </TouchableOpacity>
-                        )}
+                            {/* Settings Button - Only for current user */}
+                            {isOwnProfile && (
+                                <TouchableOpacity
+                                    onPress={() => router.push('/profile/settings')}
+                                    className="bg-neutral-900 p-3 rounded-2xl border border-neutral-800"
+                                >
+                                    <Settings size={20} color="white" />
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     </View>
 
 
