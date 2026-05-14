@@ -1,20 +1,28 @@
 {
   "applinks": {
-    "apps": [],
     "details": [
       {
         "appID": "Z69ML3B3XS.com.grantmoore.movieboxing",
-        "paths": [
-            "/leagues/*",
-            "/profile/*"
+        "components": [
+          {
+            "/": "/leagues/*",
+            "comment": "Matches leagues"
+          },
+          {
+            "/": "/league/*",
+            "comment": "Matches singular league links"
+          },
+          {
+            "/": "/profile/*",
+            "comment": "Matches user profiles"
+          }
         ]
       }
     ]
   },
-  "activitycontinuation": {
-    "apps": ["Z69ML3B3XS.com.grantmoore.movieboxing"]
-  },
   "webcredentials": {
-    "apps": ["Z69ML3B3XS.com.grantmoore.movieboxing"]
+    "apps": [
+      "Z69ML3B3XS.com.grantmoore.movieboxing"
+    ]
   }
 }
