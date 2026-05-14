@@ -9,10 +9,6 @@
             "comment": "Matches leagues"
           },
           {
-            "/": "/league/*",
-            "comment": "Matches singular league links"
-          },
-          {
             "/": "/profile/*",
             "comment": "Matches user profiles"
           }
