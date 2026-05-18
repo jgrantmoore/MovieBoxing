@@ -318,6 +318,7 @@ export default function LeagueDetails() {
                                 <Text className="text-white font-black uppercase italic text-lg ml-3 animate-pulse">Begin Draft</Text>
                             </TouchableOpacity>
                         )}
+                        {}
                     </View>
                 }
                 renderItem={({ item: team }) => {

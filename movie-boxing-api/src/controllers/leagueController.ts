@@ -51,11 +51,11 @@ export const createLeague = async (req: Request, res: Response) => {
         const leagueId = leagueResult.rows[0].LeagueId || leagueResult.rows[0].leagueid;
 
         // 1. Fetch the Admin's Name from the Users table
-        const userQuery = `SELECT "Name" FROM "Users" WHERE "UserId" = $1 LIMIT 1;`;
+        const userQuery = `SELECT "DisplayName" FROM "Users" WHERE "UserId" = $1 LIMIT 1;`;
         const userResult = await client.query(userQuery, [adminUserId]);
 
         // Fallback to "Admin" if for some reason the name doesn't exist
-        const adminName = userResult.rows[0]?.Name || "Admin";
+        const adminName = userResult.rows[0]?.DisplayName || "Admin";
         const teamName = `${adminName}'s Team`;
         await client.query(
             'INSERT INTO "Teams" ("LeagueId", "OwnerUserId", "TeamName") VALUES ($1, $2, $3)',

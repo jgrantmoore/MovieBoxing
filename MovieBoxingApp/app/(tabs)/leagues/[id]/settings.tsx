@@ -137,7 +137,6 @@ export default function LeagueSettings() {
                                 method: 'DELETE'
                             });
                             Alert.alert("Success", "Arena has been dismantled.");
-                            triggerRefresh(); // Refresh league list on home screen
                             router.navigate('/leagues'); // Navigate back to the league list
                         } catch (err: any) {
                             Alert.alert("Deletion Failed", err.message);

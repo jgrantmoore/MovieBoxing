@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from 'react';
 import { registerForPushNotificationsAsync } from '../src/utils/notifications';
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { useColorScheme } from 'react-native';
 import { apiRequest } from '../src/api/client';
 import "../global.css";
 
@@ -38,7 +40,7 @@ function RootLayoutNav() {
   useEffect(() => {
     const setupNotifications = async () => {
       const token = await registerForPushNotificationsAsync();
-      
+
       if (token) {
         // Send token to your PostgreSQL DB table (e.g., UserPushTokens)
         try {
@@ -73,20 +75,38 @@ function RootLayoutNav() {
     }
   }, [session, loading, isFirstLaunch, segments]);
 
+  const colorScheme = useColorScheme();
+
+  // Choose your app's base background color
+  const APP_BACKGROUND_COLOR = '#020617';
+
+  // Create a custom theme object overriding the default canvas colors
+  const CustomTheme = {
+    ...(colorScheme === 'dark' ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(colorScheme === 'dark' ? DarkTheme.colors : DefaultTheme.colors),
+      background: APP_BACKGROUND_COLOR, // <-- Fixes the swipe-back flash
+      card: APP_BACKGROUND_COLOR,       // <-- Fixes native header background flashes
+    },
+  };
+
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        gestureEnabled: true,
-        gestureDirection: 'horizontal',
-        animation: 'slide_from_right'
-      }}
-    >
-      {/* Define your privacy screen specifically if you want to customize it */}
-      <Stack.Screen name="privacy" options={{ headerShown: false }} />
-      <Stack.Screen name="contact" options={{ headerShown: false }} />
-    </Stack>
+    <ThemeProvider value={CustomTheme}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          gestureEnabled: true,
+          gestureDirection: 'horizontal',
+          animation: 'slide_from_right',
+          contentStyle: { backgroundColor: '#020617' },
+        }}
+      >
+        {/* Define your privacy screen specifically if you want to customize it */}
+        <Stack.Screen name="privacy" options={{ headerShown: false }} />
+        <Stack.Screen name="contact" options={{ headerShown: false }} />
+      </Stack>
+    </ThemeProvider>
   );
 }
 
