@@ -50,7 +50,13 @@ export const createLeague = async (req: Request, res: Response) => {
         const leagueResult = await client.query(leagueQuery, leagueValues);
         const leagueId = leagueResult.rows[0].LeagueId || leagueResult.rows[0].leagueid;
 
-        const teamName = `${body.LeagueName} Admin`;
+        // 1. Fetch the Admin's Name from the Users table
+        const userQuery = `SELECT "Name" FROM "Users" WHERE "UserId" = $1 LIMIT 1;`;
+        const userResult = await client.query(userQuery, [adminUserId]);
+
+        // Fallback to "Admin" if for some reason the name doesn't exist
+        const adminName = userResult.rows[0]?.Name || "Admin";
+        const teamName = `${adminName}'s Team`;
         await client.query(
             'INSERT INTO "Teams" ("LeagueId", "OwnerUserId", "TeamName") VALUES ($1, $2, $3)',
             [leagueId, adminUserId, teamName]
@@ -524,7 +530,7 @@ export const updateLeague = async (req: Request, res: Response) => {
         const now = new Date();
         now.setHours(0, 0, 0, 0); // Normalize to start of today
 
-        
+
 
         if (body.EndDate !== undefined) {
             const newEndDate = new Date(body.EndDate);

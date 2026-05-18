@@ -7,6 +7,7 @@ import "../global.css";
 function RootLayoutNav() {
   const { session, loading } = useAuth();
   const [isFirstLaunch, setIsFirstLaunch] = useState<boolean | null>(null);
+  const [routedToRegister, setRoutedToRegister] = useState(false);
   const segments = useSegments();
   const router = useRouter();
 
@@ -37,8 +38,9 @@ function RootLayoutNav() {
 
     const inAuthGroup = segments[0] === '(auth)';
 
-    if (isFirstLaunch) {
+    if (isFirstLaunch && !routedToRegister) {
       router.replace('/register');
+      setRoutedToRegister(true);
       return;
     } else if (!session && !inAuthGroup) {
       router.replace('/login');

@@ -18,6 +18,7 @@ import { apiRequest } from '../../src/api/client';
 import { Team, TopPerformer } from '../../src/types/league';
 import { useAuth } from '../../src/context/AuthContext';
 import '../../global.css';
+import Link from 'expo-router/link';
 
 export default function Dashboard() {
     const { session, loading: authLoading } = useAuth();
@@ -121,11 +122,13 @@ export default function Dashboard() {
             {/* Section 1: Top Performers (Staggered Load) */}
             <View className="mb-12">
                 <Text className="text-xl font-black uppercase italic text-white mb-6 border-l-4 border-red-600 pl-3">
-                    Top Performers
+                    Your Top Performers
                 </Text>
 
                 {dataLoading ? (
-                    <ActivityIndicator color="#dc2626" />
+                    <View className="py-4 items-center justify-center">
+                        <ActivityIndicator color="#dc2626" />
+                    </View>
                 ) : (
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         <View className="flex-row">
@@ -152,77 +155,209 @@ export default function Dashboard() {
             </View>
 
             {/* Section 2: Active Leagues */}
-            <View className="space-y-8 pb-20">
+            <View className="space-y-8 mb-12">
                 <Text className="text-xl font-black uppercase italic text-white mb-6 border-l-4 border-red-600 pl-3">
                     Active Teams
                 </Text>
 
-                {teams.map((team) => {
-                    const isBenchOpen = openBench.has(team.LeagueName);
-                    const visiblePicks = team.Picks.filter(p => p.IsStarting || isBenchOpen);
+                {dataLoading ? (
+                    <View className="py-8 items-center justify-center">
+                        <ActivityIndicator color="#dc2626" />
+                    </View>
+                ) : teams.length > 0 ? (
+                    teams.map((team) => {
+                        const isBenchOpen = openBench.has(team.LeagueName);
+                        const visiblePicks = team.Picks.filter(p => p.IsStarting || isBenchOpen);
 
-                    return (
-                        <View key={team.LeagueId} className="bg-neutral-900/30 rounded-3xl border border-neutral-800 p-5 mb-6">
-                            <View className="flex-row justify-between items-start mb-4">
-                                <View className="flex-1 mr-4">
-                                    <TouchableOpacity onPress={() => handleLeaguePress(team.LeagueId)}>
-                                        <Text className="text-2xl font-black uppercase italic text-white leading-none">
-                                            {team.LeagueName}
+                        return (
+                            <View key={team.LeagueId} className="bg-neutral-900/30 rounded-3xl border border-neutral-800 p-5 mb-6">
+                                <View className="flex-row justify-between items-start mb-4">
+                                    <View className="flex-1 mr-4">
+                                        <TouchableOpacity onPress={() => handleLeaguePress(team.LeagueId)}>
+                                            <Text className="text-2xl font-black uppercase italic text-white leading-none">
+                                                {team.LeagueName}
+                                            </Text>
+                                            <Text className="text-l font-black uppercase italic text-red-600 leading-none">
+                                                {team.TeamName}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+
+                                <View className="mx-[-20px]">
+                                    <ScrollView
+                                        horizontal
+                                        showsHorizontalScrollIndicator={false}
+                                        ref={(el) => { scrollRefs.current[team.LeagueId] = el; }}
+                                        onScroll={(event) => {
+                                            scrollOffsets.current[team.LeagueId] = event.nativeEvent.contentOffset.x;
+                                        }}
+                                        scrollEventThrottle={16}
+                                    >
+                                        <View className="flex-row px-5">
+                                            {visiblePicks.map((pick, index) => (
+                                                <Animated.View
+                                                    key={`${team.LeagueId}-${pick.MovieId}`}
+                                                    layout={LinearTransition.springify().damping(15).stiffness(100)}
+                                                    entering={!pick.IsStarting && isBenchOpen ? FadeInLeft.duration(200) : FadeInLeft.damping(15).delay(index * 50)}
+                                                    exiting={FadeOutRight.duration(200)}
+                                                    style={{ marginRight: 12 }}
+                                                >
+                                                    <MovieCard
+                                                        movieId={pick.MovieId}
+                                                        title={pick.Title}
+                                                        posterUrl={pick.PosterUrl}
+                                                        boxOffice={pick.BoxOffice}
+                                                        releaseDate={pick.ReleaseDate}
+                                                        isBench={!pick.IsStarting}
+                                                    />
+                                                </Animated.View>
+                                            ))}
+                                        </View>
+                                    </ScrollView>
+                                </View>
+
+                                <View className="flex-row gap-3 mt-6">
+                                    <TouchableOpacity
+                                        onPress={() => router.push({
+                                            pathname: "/(tabs)/leagues/[id]",
+                                            params: { id: team.LeagueId }
+                                        })}
+                                        activeOpacity={0.7}
+                                        className="flex-1 py-4 bg-neutral-800/50 border border-neutral-800 rounded-2xl items-center justify-center"
+                                    >
+                                        <Text className="text-neutral-400 text-[10px] font-black uppercase tracking-widest">
+                                            View League
                                         </Text>
-                                        <Text className="text-l font-black uppercase italic text-red-600 leading-none">
-                                            {team.TeamName}
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        onPress={() => toggleBench(team.LeagueId, team.LeagueName)}
+                                        activeOpacity={0.7}
+                                        className="flex-1 py-4 bg-neutral-800/50 border border-neutral-700/50 rounded-2xl items-center justify-center"
+                                    >
+                                        <Text className="text-neutral-400 text-[10px] font-black uppercase tracking-widest">
+                                            {isBenchOpen ? '← Hide Bench' : '→ View Bench'}
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>
-
-                            <View className="mx--5">
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    ref={(el) => { scrollRefs.current[team.LeagueId] = el; }}
-                                    // Update the ref with the current X position
-                                    onScroll={(event) => {
-                                        scrollOffsets.current[team.LeagueId] = event.nativeEvent.contentOffset.x;
-                                    }}
-                                    // scrollEventThrottle ensures the event fires frequently enough to be accurate
-                                    scrollEventThrottle={16}
-                                >
-                                    <View className="flex-row px-5">
-                                        {visiblePicks.map((pick, index) => (
-                                            <Animated.View
-                                                key={`${team.LeagueId}-${pick.MovieId}`}
-                                                layout={LinearTransition.springify().damping(15).stiffness(100)}
-                                                entering={!pick.IsStarting && isBenchOpen ? FadeInLeft.duration(200) : FadeInLeft.damping(15).delay(index * 50)}
-                                                exiting={FadeOutRight.duration(200)}
-                                                style={{ marginRight: 12 }}
-                                            >
-                                                <MovieCard
-                                                    movieId={pick.MovieId}
-                                                    title={pick.Title}
-                                                    posterUrl={pick.PosterUrl}
-                                                    boxOffice={pick.BoxOffice}
-                                                    releaseDate={pick.ReleaseDate}
-                                                    isBench={!pick.IsStarting}
-                                                />
-                                            </Animated.View>
-                                        ))}
-                                    </View>
-                                </ScrollView>
-                            </View>
-
-                            <TouchableOpacity
-                                onPress={() => toggleBench(team.LeagueId, team.LeagueName)}
-                                activeOpacity={0.7}
-                                className="mt-6 py-4 bg-neutral-800/50 border border-neutral-700/50 rounded-2xl items-center"
-                            >
-                                <Text className="text-neutral-400 text-[10px] font-black uppercase tracking-widest">
-                                    {isBenchOpen ? '← Hide Benched Movies' : '→ View Full Roster'}
-                                </Text>
+                        );
+                    })
+                ) : (
+                    /* Empty State Fallback */
+                    <View className="bg-neutral-900/50 rounded-3xl border-2 border-dashed border-neutral-800 p-12 items-center">
+                        <Text className="text-neutral-500 italic mb-4">No active leagues found.</Text>
+                        <Link href="/leagues/search" asChild>
+                            <TouchableOpacity>
+                                <Text className="text-red-600 font-black uppercase italic">Find a league →</Text>
                             </TouchableOpacity>
-                        </View>
-                    );
-                })}
+                        </Link>
+                    </View>
+                )}
+            </View>
+
+            {/* Section 3: Ended Leagues */}
+            <View className="space-y-8 pb-20">
+                <Text className="text-xl font-black uppercase italic text-white mb-6 border-l-4 border-red-600 pl-3">
+                    Ended Leagues
+                </Text>
+
+                {dataLoading ? (
+                    <View className="py-8 items-center justify-center">
+                        <ActivityIndicator color="#dc2626" />
+                    </View>
+                ) : teams.length > 0 ? (
+                    teams.map((team) => {
+                        const isBenchOpen = openBench.has(team.LeagueName);
+                        const visiblePicks = team.Picks.filter(p => p.IsStarting || isBenchOpen);
+
+                        return (
+                            <View key={team.LeagueId} className="bg-neutral-900/30 rounded-3xl border border-neutral-800 p-5 mb-6">
+                                <View className="flex-row justify-between items-start mb-4">
+                                    <View className="flex-1 mr-4">
+                                        <TouchableOpacity onPress={() => handleLeaguePress(team.LeagueId)}>
+                                            <Text className="text-2xl font-black uppercase italic text-white leading-none">
+                                                {team.LeagueName}
+                                            </Text>
+                                            <Text className="text-l font-black uppercase italic text-red-600 leading-none">
+                                                {team.TeamName}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+
+                                <View className="mx-[-20px]">
+                                    <ScrollView
+                                        horizontal
+                                        showsHorizontalScrollIndicator={false}
+                                        ref={(el) => { scrollRefs.current[team.LeagueId] = el; }}
+                                        onScroll={(event) => {
+                                            scrollOffsets.current[team.LeagueId] = event.nativeEvent.contentOffset.x;
+                                        }}
+                                        scrollEventThrottle={16}
+                                    >
+                                        <View className="flex-row px-5">
+                                            {visiblePicks.map((pick, index) => (
+                                                <Animated.View
+                                                    key={`${team.LeagueId}-${pick.MovieId}`}
+                                                    layout={LinearTransition.springify().damping(15).stiffness(100)}
+                                                    entering={!pick.IsStarting && isBenchOpen ? FadeInLeft.duration(200) : FadeInLeft.damping(15).delay(index * 50)}
+                                                    exiting={FadeOutRight.duration(200)}
+                                                    style={{ marginRight: 12 }}
+                                                >
+                                                    <MovieCard
+                                                        movieId={pick.MovieId}
+                                                        title={pick.Title}
+                                                        posterUrl={pick.PosterUrl}
+                                                        boxOffice={pick.BoxOffice}
+                                                        releaseDate={pick.ReleaseDate}
+                                                        isBench={!pick.IsStarting}
+                                                    />
+                                                </Animated.View>
+                                            ))}
+                                        </View>
+                                    </ScrollView>
+                                </View>
+
+                                <View className="flex-row gap-3 mt-6">
+                                    <TouchableOpacity
+                                        onPress={() => router.push({
+                                            pathname: "/(tabs)/leagues/[id]",
+                                            params: { id: team.LeagueId }
+                                        })}
+                                        activeOpacity={0.7}
+                                        className="flex-1 py-4 bg-neutral-800/50 border border-neutral-800 rounded-2xl items-center justify-center"
+                                    >
+                                        <Text className="text-neutral-400 text-[10px] font-black uppercase tracking-widest">
+                                            View League
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        onPress={() => toggleBench(team.LeagueId, team.LeagueName)}
+                                        activeOpacity={0.7}
+                                        className="flex-1 py-4 bg-neutral-800/50 border border-neutral-700/50 rounded-2xl items-center justify-center"
+                                    >
+                                        <Text className="text-neutral-400 text-[10px] font-black uppercase tracking-widest">
+                                            {isBenchOpen ? '← Hide Bench' : '→ View Bench'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        );
+                    })
+                ) : (
+                    /* Empty State Fallback */
+                    <View className="bg-neutral-900/50 rounded-3xl border-2 border-dashed border-neutral-800 p-12 items-center">
+                        <Text className="text-neutral-500 italic mb-4">No active leagues found.</Text>
+                        <Link href="/leagues/search" asChild>
+                            <TouchableOpacity>
+                                <Text className="text-red-600 font-black uppercase italic">Find a league →</Text>
+                            </TouchableOpacity>
+                        </Link>
+                    </View>
+                )}
             </View>
         </ScrollView>
     );

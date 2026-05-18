@@ -23,7 +23,8 @@ import {
     Calendar,
     ChevronDown,
     ArrowRightLeft,
-    Share as ShareIcon
+    Share as ShareIcon,
+    Play
 } from 'lucide-react-native';
 import { apiRequest } from '../../../../src/api/client';
 import { MovieCard } from '../../../../src/components/MovieCard';
@@ -96,7 +97,6 @@ export default function LeagueDetails() {
                 apiRequest<any[]>(`/leagues/leaderboard?id=${id}`),
                 apiRequest<any[]>(`/trades/history?id=${id}`)
             ]);
-            console.log(info.WinnerId + " is the winner of league " + info.LeagueName); // Debug log
             setLeagueInfo(info);
             setTeams(info.Teams || []);
             setReleaseSchedule(schedule || []);
@@ -160,19 +160,7 @@ export default function LeagueDetails() {
         }
     };
 
-    const confirmLeaveLeague = (teamId: number) => {
-        Alert.alert("Resign Position?", "Are you sure you want to leave this league? This cannot be undone.", [
-            { text: "Cancel", style: "cancel" },
-            {
-                text: "Leave League", style: "destructive", onPress: async () => {
-                    try {
-                        await apiRequest(`/teams/delete?id=${teamId}`, { method: 'DELETE' });
-                        router.back();
-                    } catch (err) { Alert.alert("Error", "Could not leave league."); }
-                }
-            }
-        ]);
-    };
+
 
     const toggleBench = async (teamId: number) => {
         const currentX = scrollOffsets.current[teamId] || 0;
@@ -250,7 +238,7 @@ export default function LeagueDetails() {
                 ref={parentFlatListRef}
                 data={activeTab === 'teams' ? teams : []}
                 keyExtractor={(item) => item.TeamId.toString()}
-                showsVerticalScrollIndicator={false}
+                showsVerticalScrollIndicator={true}
                 contentContainerStyle={{ paddingBottom: 100 }}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#dc2626" />
@@ -270,7 +258,7 @@ export default function LeagueDetails() {
                                     <Text className="text-neutral-500 font-mono text-xs">{teams.length} Teams</Text>
                                 </View>
                                 <Text className="text-4xl w-80 font-black text-white uppercase italic tracking-tighter">{leagueInfo.LeagueName}</Text>
-                                {!(leagueInfo.Joined) && (
+                                {!(leagueInfo.Joined) && !leagueInfo.HasDrafted && (
                                     <TouchableOpacity onPress={() => setIsJoinModalOpen(true)} className="w-[8rem] bg-red-600 px-3 py-1 rounded-full mt-3">
                                         <Text className="text-white font-black w-full text-center">Join League</Text>
                                     </TouchableOpacity>
@@ -324,6 +312,12 @@ export default function LeagueDetails() {
                                 <Text className="text-white font-black uppercase italic text-lg ml-3 animate-pulse">Enter Draft Arena</Text>
                             </TouchableOpacity>
                         )}
+                        {activeTab === 'teams' && !leagueInfo.HasDrafted && leagueInfo.isAdmin && (
+                            <TouchableOpacity onPress={() => router.push(`/leagues/${id}/draft/start`)} className="bg-red-600 rounded-2xl py-5 flex-row items-center justify-center shadow-lg border-b-4 border-red-800 mb-4">
+                                <Play size={20} stroke="white" className="mr-3 animate-pulse" />
+                                <Text className="text-white font-black uppercase italic text-lg ml-3 animate-pulse">Begin Draft</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 }
                 renderItem={({ item: team }) => {
@@ -367,13 +361,6 @@ export default function LeagueDetails() {
                                                         }`}>
                                                         Front Office
                                                     </Text>
-                                                </TouchableOpacity>
-
-                                                <TouchableOpacity
-                                                    onPress={() => confirmLeaveLeague(team.TeamId)}
-                                                    className="bg-neutral-900/50 px-3 py-2 rounded-xl border border-neutral-800"
-                                                >
-                                                    <Trash2 size={14} color="#737373" />
                                                 </TouchableOpacity>
                                             </View>
                                         )}
@@ -460,6 +447,7 @@ export default function LeagueDetails() {
                 <FrontOfficeModal
                     visible={isFrontOfficeOpen}
                     onClose={() => setIsFrontOfficeOpen(false)}
+                    onUpdatedClose={() => { setIsFrontOfficeOpen(false); fetchLeagueData(true); }}
                     team={userTeam}
                     startingSlots={STARTING_SLOTS}
                     totalSlots={TOTAL_SLOTS}
@@ -483,7 +471,7 @@ export default function LeagueDetails() {
             <JoinLeagueModal
                 visible={isJoinModalOpen}
                 leagueInfo={leagueInfo}
-                onClose={() => { setIsJoinModalOpen(false) }}
+                onClose={() => setIsJoinModalOpen(false)}
                 onUpdateSuccess={fetchLeagueData}
             />
 
@@ -521,7 +509,14 @@ export default function LeagueDetails() {
 
 
                         <Text className="text-neutral-500 text-xl uppercase tracking-widest mb-6 text-center italic">
-                            {formatCommaCurrency(teams.sort((a, b) => (b.Picks || []).reduce((sum, p) => sum + (p.BoxOffice || 0), 0) - (a.Picks || []).reduce((sum, p) => sum + (p.BoxOffice || 0), 0))[0].Picks?.reduce((sum, p) => sum + (p.BoxOffice || 0), 0) || 0)}
+                            {formatCommaCurrency(
+                                [...teams]
+                                    .sort((a, b) => {
+                                        const scoreA = (a.Picks || []).reduce((sum, p) => p.OrderDrafted <= STARTING_SLOTS ? sum + (p.BoxOffice || 0) : sum, 0);
+                                        const scoreB = (b.Picks || []).reduce((sum, p) => p.OrderDrafted <= STARTING_SLOTS ? sum + (p.BoxOffice || 0) : sum, 0);
+                                        return scoreB - scoreA;
+                                    })[0]?.Picks?.reduce((sum, p) => p.OrderDrafted <= STARTING_SLOTS ? sum + (p.BoxOffice || 0) : sum, 0) || 0
+                            )}
                         </Text>
 
                         <View className="h-[1px] w-full bg-neutral-800 mb-6" />
@@ -681,7 +676,7 @@ const TradesHistoryView = ({ history }: { history: any[] }) => {
                 const status = getStatusDetails(trade.Status);
                 return (
                     <View
-                        key={trade.ProposalId}
+                        key={trade.ProposalId + "tradehistory"}
                         className="bg-neutral-900/40 border border-neutral-800 rounded-[2rem] p-6 mb-4"
                     >
                         {/* Status Badge */}

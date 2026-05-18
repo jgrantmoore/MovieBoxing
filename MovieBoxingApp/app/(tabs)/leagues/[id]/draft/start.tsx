@@ -94,7 +94,7 @@ export default function DraftStart() {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <View className="flex-1 bg-slate-950">
                 <Stack.Screen options={{
-                    title: "DRAFT BRIEFING",
+                    title: "DRAFT ORDER",
                     headerStyle: { backgroundColor: '#020617' },
                     headerLeft: () => (
                         <RNStandardTouch onPress={() => router.back()} className="p-2 -ml-2">
@@ -113,8 +113,8 @@ export default function DraftStart() {
                     ListHeaderComponent={
                         <View className="mb-6">
                             <Text className="text-4xl font-black text-white uppercase italic text-center mb-2">Initialize Draft</Text>
-                            <Text className="text-neutral-500 font-mono text-[10px] uppercase text-center mb-8">
-                                {league?.LeagueName} • Long Press to Reorder
+                            <Text className="text-white font-black text-[10px] uppercase text-center mb-8">
+                                Hold and Drag to Reorder
                             </Text>
                             {/* Stats row here... */}
                         </View>
@@ -122,7 +122,7 @@ export default function DraftStart() {
                     ListFooterComponent={
                         league?.isAdmin && (
                             <RNStandardTouch onPress={handleStartDraft} disabled={starting} className="bg-red-600 py-5 rounded-2xl flex-row items-center justify-center mt-4">
-                                {starting ? <ActivityIndicator color="white" /> : <><Play size={20} color="white" fill="white" /><Text className="text-white font-black uppercase italic text-lg ml-3">Commence Draft</Text></>}
+                                {starting ? <ActivityIndicator color="white" /> : <><Play size={20} color="white" fill="white" /><Text className="text-white font-black uppercase italic text-lg ml-3">Begin Draft</Text></>}
                             </RNStandardTouch>
                         )
                     }

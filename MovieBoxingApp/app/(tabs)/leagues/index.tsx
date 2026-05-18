@@ -208,16 +208,31 @@ export default function Leagues() {
                                             </View>
                                         </ScrollView>
                                     </View>
+                                    {/* Persistent Navigation & Toggle Actions */}
+                                    <View className="flex-row gap-3 mt-6">
+                                        <TouchableOpacity
+                                            onPress={() => router.push({
+                                                pathname: "/(tabs)/leagues/[id]",
+                                                params: { id: team.LeagueId }
+                                            })}
+                                            activeOpacity={0.7}
+                                            className="flex-1 py-4 bg-neutral-800/50 border border-neutral-800 rounded-2xl items-center justify-center"
+                                        >
+                                            <Text className="text-neutral-400 text-[10px] font-black uppercase tracking-widest">
+                                                View League
+                                            </Text>
+                                        </TouchableOpacity>
 
-                                    <TouchableOpacity
-                                        onPress={() => toggleBench(team.TeamId)}
-                                        activeOpacity={0.7}
-                                        className="mt-6 py-4 bg-neutral-800/50 border border-neutral-700/50 rounded-2xl items-center"
-                                    >
-                                        <Text className="text-neutral-400 text-[10px] font-black uppercase tracking-widest">
-                                            {isBenchOpen ? '← Hide Benched Movies' : '→ View Full Roster'}
-                                        </Text>
-                                    </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPress={() => toggleBench(team.TeamId)}
+                                            activeOpacity={0.7}
+                                            className="flex-1 py-4 bg-neutral-800/50 border border-neutral-700/50 rounded-2xl items-center justify-center"
+                                        >
+                                            <Text className="text-neutral-400 text-[10px] font-black uppercase tracking-widest">
+                                                {isBenchOpen ? '← Hide Bench' : '→ View Bench'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                             );
                         })
