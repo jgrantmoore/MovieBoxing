@@ -519,7 +519,10 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
     const BENCH_SLOTS = leagueInfo?.Rules?.Bench || 3;
     const TOTAL_SLOTS = STARTING_SLOTS + BENCH_SLOTS;
 
-    const formatCurrency = (amount: number) => {
+    const formatCurrency = (amount: any) => {
+        if (isNaN(amount)) {
+            amount = 0;
+        }
         if (amount <= 999999999) {
             return `$${(amount / 1000000).toFixed(2)}M`;
         } else if (amount >= 999999999) {
@@ -1184,7 +1187,7 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                             }`}
                     >
                         <LayoutGrid size={16} className="shrink-0" />
-                        <span className="hidden xs:inline">Teams</span>
+                        <span className="xs:inline">Teams</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('release')}
@@ -1192,7 +1195,7 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                             }`}
                     >
                         <ListOrdered size={16} className="shrink-0" />
-                        <span className="hidden xs:inline text-center">Schedule</span>
+                        <span className="xs:inline text-center">Schedule</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('leaderboard')}
@@ -1200,7 +1203,7 @@ export default function LeagueDetails({ params }: { params: Promise<{ id: string
                             }`}
                     >
                         <Medal size={16} className="shrink-0" />
-                        <span className="hidden xs:inline">Stats</span>
+                        <span className="xs:inline">Stats</span>
                     </button>
                 </div>
 

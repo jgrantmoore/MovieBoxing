@@ -52,6 +52,10 @@ export default function LeaguesStack() {
         name="[id]/draft/start" 
         options={{ title: "DRAFT BRIEFING" }} 
       />
+      <Stack.Screen 
+        name="[id]/draft/index" 
+        options={{ headerShown: false }} 
+      />
     </Stack>
   );
 }

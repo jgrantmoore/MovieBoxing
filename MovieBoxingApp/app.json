@@ -15,7 +15,9 @@
       "supportsTablet": true,
       "jsEngine": "hermes",
       "bundleIdentifier": "com.grantmoore.movieboxing",
-      "associatedDomains": ["applinks:movieboxing.com"]
+      "associatedDomains": [
+        "applinks:movieboxing.com"
+      ]
     },
     "android": {
       "adaptiveIcon": {
@@ -53,11 +55,28 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.1036192699896-3orvss0jdjti8occh5ktjnffev0fkm68"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/Icon-iOS-Default-1024x1024@1x.png",
+          "color": "#E6F4FE",
+          "sounds": [
+            "./assets/sounds/draft_alarm.wav"
+          ]
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "50892cbd-a5c3-4d85-8537-d4b0e6016059"
+      }
+    },
+    "owner": "movieboxing"
   }
 }

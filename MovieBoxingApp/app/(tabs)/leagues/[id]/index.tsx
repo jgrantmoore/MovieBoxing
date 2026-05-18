@@ -312,7 +312,7 @@ export default function LeagueDetails() {
                                 <Text className="text-white font-black uppercase italic text-lg ml-3 animate-pulse">Enter Draft Arena</Text>
                             </TouchableOpacity>
                         )}
-                        {activeTab === 'teams' && !leagueInfo.HasDrafted && leagueInfo.isAdmin && (
+                        {activeTab === 'teams' && !leagueInfo.HasDrafted && !leagueInfo.IsDrafting && leagueInfo.isAdmin && (
                             <TouchableOpacity onPress={() => router.push(`/leagues/${id}/draft/start`)} className="bg-red-600 rounded-2xl py-5 flex-row items-center justify-center shadow-lg border-b-4 border-red-800 mb-4">
                                 <Play size={20} stroke="white" className="mr-3 animate-pulse" />
                                 <Text className="text-white font-black uppercase italic text-lg ml-3 animate-pulse">Begin Draft</Text>

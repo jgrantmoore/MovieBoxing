@@ -2,6 +2,8 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from 'react';
+import { registerForPushNotificationsAsync } from '../src/utils/notifications';
+import { apiRequest } from '../src/api/client';
 import "../global.css";
 
 function RootLayoutNav() {
@@ -11,6 +13,7 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
 
+  //Check if it's the first time the user has opened the app
   useEffect(() => {
     const checkFirstLaunch = async () => {
       try {
@@ -32,6 +35,27 @@ function RootLayoutNav() {
     checkFirstLaunch();
   }, []);
 
+  useEffect(() => {
+    const setupNotifications = async () => {
+      const token = await registerForPushNotificationsAsync();
+      
+      if (token) {
+        // Send token to your PostgreSQL DB table (e.g., UserPushTokens)
+        try {
+          await apiRequest('/user/save-push-token', {
+            method: 'POST',
+            body: JSON.stringify({ pushToken: token }),
+          });
+        } catch (err) {
+          console.error("Failed to sync push token with backend:", err);
+        }
+      }
+    };
+
+    setupNotifications();
+  }, []);
+
+  //Route to register if first launch, otherwise route based on auth status
   useEffect(() => {
     // Wait for both Auth and First Launch check to finish
     if (loading || isFirstLaunch === null) return;

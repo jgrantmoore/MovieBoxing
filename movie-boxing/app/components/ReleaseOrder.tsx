@@ -45,10 +45,14 @@ const ReleaseOrder: React.FC<ReleaseOrderProps> = ({ leagueId }) => {
 
     const today = new Date();
 
-    const formatCurrency = (rev: number) => {
+    const formatCurrency = (rev: any) => {
+        if (isNaN(rev)) {
+            rev = 0;
+        }
+
         if (rev >= 1000000000) return `$${(rev / 1000000000).toFixed(2)}B`;
         if (rev >= 1000000) return `$${(rev / 1000000).toFixed(1)}M`;
-        return `$${(rev / 1000).toFixed(0)}K`;
+        return `$${(rev / 1000).toFixed(0)}.00`;
     };
 
     if (loading) return (

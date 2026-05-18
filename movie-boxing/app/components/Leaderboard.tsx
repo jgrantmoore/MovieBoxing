@@ -76,7 +76,7 @@ export default function Leaderboard({ leagueId }: { leagueId: number }) {
                                         
                                         <div className="flex flex-wrap items-center gap-2">
                                             <span className={`px-2 py-0.5 rounded-sm font-black text-[9px] uppercase 
-                                                ${isFirst ? 'bg-black text-white' : 'bg-blue-600 text-white'}`}>
+                                                ${isFirst ? 'bg-black text-white' : 'bg-red-600 text-white'}`}>
                                                 {player.ReleasedCount == 1 ? '1 Movie Active' : `${player.ReleasedCount} Movies Active`}
                                             </span>
                                             <span className={`text-[9px] font-black uppercase tracking-widest ${isFirst ? 'text-black/40' : 'text-neutral-500'}`}>

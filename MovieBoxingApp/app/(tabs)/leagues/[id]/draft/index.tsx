@@ -38,6 +38,7 @@ export default function DraftArena() {
     const [teams, setTeams] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isFinishedModalOpen, setIsFinishedModalOpen] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
 
     // UI Feedback States
     const [processingPickId, setProcessingPickId] = useState<number | null>(null);
@@ -167,10 +168,12 @@ export default function DraftArena() {
 
     useEffect(() => {
         if (!debouncedSearch || !leagueInfo) return setMovies([]);
+        setIsSearching(true);
         apiRequest(`/movies/search?q=${encodeURIComponent(debouncedSearch)}`, {
             method: 'POST',
             body: JSON.stringify({ StartDate: leagueInfo.StartDate, EndDate: leagueInfo.EndDate })
         }).then(setMovies);
+        setIsSearching(false);
     }, [debouncedSearch, leagueInfo]);
 
     useEffect(() => {
@@ -219,7 +222,7 @@ export default function DraftArena() {
             className="bg-neutral-900/30 border border-neutral-800 p-6 rounded-[2.5rem]"
         >
             <View className="flex-row justify-between items-center mb-6">
-                <Text className="text-xs font-black uppercase text-neutral-500">{team.TeamName}</Text>
+                <Text className="text-lg font-black uppercase text-white italic">{team.TeamName}</Text>
                 {team.OwnerUserId === currentUserId && (
                     <Text className="text-[8px] bg-green-500/20 text-green-500 px-2 py-0.5 rounded font-black uppercase">You</Text>
                 )}
@@ -259,7 +262,7 @@ export default function DraftArena() {
                         <Text className="text-xl font-black italic text-white">{draftState?.currentRound}</Text>
                     </View>
                     <View className="flex-1">
-                        <Text className="text-[10px] font-black uppercase text-white/80">{draftState?.isMyTurn ? "★ YOUR TURN" : "ON THE CLOCK"}</Text>
+                        <Text className="text-[10px] font-black uppercase text-white/80">{draftState?.isMyTurn ? "★ YOUR TURN" : "SOMEONE ELSE IS ON THE CLOCK"}</Text>
                         <Text className="text-2xl font-black uppercase italic tracking-tighter text-white">{draftState?.activeTeam?.TeamName}</Text>
                     </View>
                 </View>
@@ -275,7 +278,7 @@ export default function DraftArena() {
                 {chronologicalPicks.length > 0 && (
                     <View className="py-4 border-b border-neutral-900">
                         <Text className="px-6 text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-3">
-                            Latest Transactions
+                            Latest Picks
                         </Text>
                         <ScrollView
                             horizontal
@@ -329,40 +332,67 @@ export default function DraftArena() {
                         className="bg-neutral-900 border border-neutral-800 rounded-2xl py-4 px-12 text-white font-black italic uppercase mb-6"
                     />
 
-                    {movies.map((movie) => {
-                        const isTaken = draftState?.allPicks.some(p => String(p.tmdbReference) === String(movie.id));
-                        const isProcessing = processingPickId === movie.id;
-                        const isConfirming = confirmingPickId === movie.id;
+                    {isSearching ? (
+                        /* 1. Loading / Refreshing Wheel State */
+                        <View className="py-12 items-center justify-center">
+                            <ActivityIndicator size="large" color="#dc2626" />
+                            <Text className="text-neutral-500 font-black italic uppercase mt-3 text-center tracking-wide text-xs">
+                                Scouting the Box Office...
+                            </Text>
+                        </View>
+                    ) : !searchTerm.trim() ? (
+                        /* 2. Initial State Before First Search */
+                        <View className="py-12 items-center justify-center bg-neutral-900/10 border border-dashed border-neutral-900 rounded-[2rem] p-6">
+                            <Search color="#262626" size={36} />
+                            <Text className="text-neutral-500 font-black italic uppercase mt-3 text-center tracking-wide text-xs">
+                                Search to see movies
+                            </Text>
+                        </View>
+                    ) : movies.length === 0 ? (
+                        /* 3. Empty Results State */
+                        <View className="py-12 items-center justify-center bg-neutral-900/30 border border-neutral-900 rounded-[2rem] p-6">
+                            <Film color="#262626" size={36} />
+                            <Text className="text-neutral-500 font-black italic uppercase mt-3 text-center tracking-wide text-xs">
+                                No matching titles found. Please try adjusting your search.
+                            </Text>
+                        </View>
+                    ) : (
+                        /* 4. Map Results State */
+                        movies.map((movie) => {
+                            const isTaken = draftState?.allPicks.some(p => String(p.tmdbReference) === String(movie.id));
+                            const isProcessing = processingPickId === movie.id;
+                            const isConfirming = confirmingPickId === movie.id;
 
-                        return (
-                            <View key={movie.id} className={`flex-row items-center p-4 rounded-3xl border mb-3 ${isTaken ? 'opacity-40 bg-neutral-950' : 'bg-neutral-900 border-neutral-800'}`}>
-                                <View className="h-16 w-12 bg-neutral-800 rounded mr-4 overflow-hidden">
-                                    {movie.poster_path && <Image source={{ uri: `https://image.tmdb.org/t/p/w200${movie.poster_path}` }} className="h-full w-full" />}
-                                </View>
-                                <View className="flex-1">
-                                    <Text className="text-white font-black uppercase italic text-sm" numberOfLines={1}>{movie.title}</Text>
-                                    <Text className="text-[10px] font-mono text-neutral-500">{movie.release_date}</Text>
-                                </View>
+                            return (
+                                <View key={movie.id} className={`flex-row items-center p-4 rounded-3xl border mb-3 ${isTaken ? 'opacity-40 bg-neutral-950' : 'bg-neutral-900 border-neutral-800'}`}>
+                                    <View className="h-16 w-12 bg-neutral-800 rounded mr-4 overflow-hidden">
+                                        {movie.poster_path && <Image source={{ uri: `https://image.tmdb.org/t/p/w200${movie.poster_path}` }} className="h-full w-full" />}
+                                    </View>
+                                    <View className="flex-1">
+                                        <Text className="text-white font-black uppercase italic text-sm" numberOfLines={1}>{movie.title}</Text>
+                                        <Text className="text-[10px] font-mono text-neutral-500">{movie.release_date}</Text>
+                                    </View>
 
-                                <TouchableOpacity
-                                    disabled={isTaken || !draftState?.isMyTurn || isProcessing}
-                                    onPress={() => handleDraftMovie(movie)}
-                                    className={`rounded-2xl items-center justify-center ${isConfirming ? 'bg-green-500 h-12 w-28 ' : isTaken ? 'bg-transparent h-12 w-12' : 'bg-white h-12 w-12 '}`}
-                                >
-                                    {isProcessing ? (
-                                        <ActivityIndicator color="black" size="small" />
-                                    ) : isConfirming ? (
-                                        <View className="flex-row items-center bg-green-500 px-2 py-1 rounded-full">
-                                            <Text className="text-[8px] font-black uppercase text-black bg-green-500 px-1 rounded-full">CONFIRM</Text>
-                                            <CheckCircle2 color="black" size={24} />
-                                        </View>
-                                    ) : (
-                                        <ChevronRight color="black" size={24} />
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-                        );
-                    })}
+                                    <TouchableOpacity
+                                        disabled={isTaken || !draftState?.isMyTurn || isProcessing}
+                                        onPress={() => handleDraftMovie(movie)}
+                                        className={`rounded-2xl items-center justify-center ${isConfirming ? 'bg-green-500 h-12 w-28 ' : isTaken ? 'bg-transparent h-12 w-12' : 'bg-white h-12 w-12 '}`}
+                                    >
+                                        {isProcessing ? (
+                                            <ActivityIndicator color="black" size="small" />
+                                        ) : isConfirming ? (
+                                            <View className="flex-row items-center bg-green-500 px-2 py-1 rounded-full">
+                                                <Text className="text-[8px] font-black uppercase text-black bg-green-500 px-1 rounded-full">CONFIRM</Text>
+                                                <CheckCircle2 color="black" size={24} />
+                                            </View>
+                                        ) : (
+                                            <ChevronRight color="black" size={24} />
+                                        )}
+                                    </TouchableOpacity>
+                                </View>
+                            );
+                        })
+                    )}
                 </View>
 
                 {/* 3. HORIZONTAL SWIPE ROSTERS */}
